@@ -9,6 +9,7 @@ import {
   type GetDetectionMessage,
   type ScanPageMessage,
 } from '../shared/types';
+import { initPersonaPopup } from './persona-popup';
 
 const statusEl = document.getElementById('status') as HTMLDivElement;
 const countEl = document.getElementById('count') as HTMLSpanElement;
@@ -236,4 +237,5 @@ chrome.runtime.onMessage.addListener((message: FormDetectedMessage) => {
   }
 });
 
+initPersonaPopup();
 void loadFromTab();
