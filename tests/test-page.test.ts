@@ -96,3 +96,47 @@ test('test page: has inline JS for dynamic control insertion', () => {
   assert.match(html, /addEventListener\(['"]click['"]/);
   assert.match(html, /createElement\(['"]form['"]\)/);
 });
+
+test('test page: has time input for set-time tests', () => {
+  const html = readTestPage();
+  assert.match(html, /id="appointment-time"/);
+  assert.match(html, /type="time"/);
+});
+
+test('test page: has pattern-restricted input for validation tests', () => {
+  const html = readTestPage();
+  assert.match(html, /id="zipcode-pattern"/);
+  assert.match(html, /pattern="\[0-9\]\{5\}"/);
+});
+
+test('test page: has non-submit button for click-button tests', () => {
+  const html = readTestPage();
+  assert.match(html, /Apply filters/);
+});
+
+test('test page: has deterministic test demo API', () => {
+  const html = readTestPage();
+  assert.match(html, /afa-demo-text/);
+  assert.match(html, /afa-demo-textarea/);
+  assert.match(html, /afa-demo-checkbox/);
+  assert.match(html, /afa-demo-radio/);
+  assert.match(html, /afa-demo-select/);
+  assert.match(html, /afa-demo-date/);
+  assert.match(html, /afa-demo-time/);
+  assert.match(html, /afa-demo-button/);
+  assert.match(html, /afa-demo-disabled/);
+  assert.match(html, /afa-demo-wrong/);
+  assert.match(html, /afa-demo-missing/);
+});
+
+test('test page: demo handlers use kind (not type) for interaction requests', () => {
+  const html = readTestPage();
+  assert.match(html, /payload: \{ kind: 'set-text'/);
+  assert.match(html, /payload: \{ kind: 'set-textarea'/);
+  assert.match(html, /payload: \{ kind: 'check'/);
+  assert.match(html, /payload: \{ kind: 'select-radio'/);
+  assert.match(html, /payload: \{ kind: 'select-option'/);
+  assert.match(html, /payload: \{ kind: 'set-date'/);
+  assert.match(html, /payload: \{ kind: 'set-time'/);
+  assert.match(html, /payload: \{ kind: 'click-button'/);
+});

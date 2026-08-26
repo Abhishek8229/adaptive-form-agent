@@ -55,8 +55,14 @@
         <label for="dob">Date of birth</label>
         <input id="dob" name="dob" type="date" autocomplete="bday" />
 
+        <label for="appointment-time">Appointment time</label>
+        <input id="appointment-time" name="appointmentTime" type="time" />
+
         <label for="age">Age</label>
         <input id="age" name="age" type="number" min="0" max="120" readonly value="30" />
+
+        <label for="zipcode-pattern">Zip code (pattern)</label>
+        <input id="zipcode-pattern" name="zipcodePattern" type="text" pattern="[0-9]{5}" />
       </fieldset>
 
       <fieldset>
@@ -179,6 +185,25 @@
 
     <hr />
 
+    <h2>Test interaction demo (deterministic, no AI)</h2>
+    <p class="hint">This panel runs preset interactions through the engine. The engine is exposed at <code>window.__AFA_INTERACT__</code>.</p>
+    <div class="row">
+      <button id="afa-demo-text" type="button">Set #email to "test@example.com"</button>
+      <button id="afa-demo-textarea" type="button">Set #bio to "Hello"</button>
+      <button id="afa-demo-checkbox" type="button">Check #interests[ai]</button>
+      <button id="afa-demo-radio" type="button">Pick tier=team</button>
+      <button id="afa-demo-select" type="button">Select #country by text "India"</button>
+      <button id="afa-demo-date" type="button">Set #dob to 1990-01-15</button>
+      <button id="afa-demo-time" type="button">Set #appointment-time to 09:30</button>
+      <button id="afa-demo-button" type="button">Click "Apply filters" button</button>
+      <button id="afa-demo-disabled" type="button">Try to set disabled text (should fail)</button>
+      <button id="afa-demo-wrong" type="button">Select #country value "xx" (should fail)</button>
+      <button id="afa-demo-missing" type="button">Interact with missing field (should fail)</button>
+    </div>
+    <pre id="afa-demo-output" style="background:#f6f8fa; padding:8px; border:1px solid #ddd; border-radius:4px; white-space:pre-wrap; max-height:280px; overflow:auto;"></pre>
+
+    <hr />
+
     <h2>Dynamic insertion</h2>
     <div class="row">
       <button id="add-field-btn" type="button">Add dynamic field</button>
@@ -234,6 +259,139 @@
           f.appendChild(fs);
           f.appendChild(btn);
           wrap.appendChild(f);
+        });
+
+        function findStableId(elementId) {
+          const page = window.__AFA_LAST_PAGE;
+          if (!page) return null;
+          for (const g of page.forms) {
+            for (const f of g.fields) {
+              if (f.id === elementId || f.name === elementId) return f.stableId;
+            }
+            for (const s of g.submitControls) {
+              if (s.target && (s.target.id === elementId)) return s.stableId;
+            }
+          }
+          return null;
+        }
+
+        function findSubmitStableId(buttonText) {
+          const page = window.__AFA_LAST_PAGE;
+          if (!page) return null;
+          for (const g of page.forms) {
+            for (const s of g.submitControls) {
+              if (s.text === buttonText) return s.stableId;
+            }
+          }
+          return null;
+        }
+
+        function findRadioStableId(name, value) {
+          const page = window.__AFA_LAST_PAGE;
+          if (!page) return null;
+          for (const g of page.forms) {
+            for (const f of g.fields) {
+              if (f.type === 'radio' && f.name === name && f.options.some(o => o.value === value)) return f.stableId;
+            }
+          }
+          return null;
+        }
+
+        function findCheckboxStableId(name) {
+          const page = window.__AFA_LAST_PAGE;
+          if (!page) return null;
+          for (const g of page.forms) {
+            for (const f of g.fields) {
+              if (f.type === 'checkbox' && f.name === name) return f.stableId;
+            }
+          }
+          return null;
+        }
+
+        function log(line) {
+          const el = document.getElementById('afa-demo-output');
+          el.textContent += line + '\n';
+        }
+
+        function clearLog() {
+          document.getElementById('afa-demo-output').textContent = '';
+        }
+
+        async function runDemo(label, fn) {
+          clearLog();
+          log('--- ' + label + ' ---');
+          try {
+            const res = await fn();
+            log(JSON.stringify(res, null, 2));
+          } catch (err) {
+            log('ERROR: ' + (err && err.message ? err.message : String(err)));
+          }
+        }
+
+        document.getElementById('afa-demo-text').addEventListener('click', function () {
+          const stableId = findStableId('email');
+          runDemo('set-text #email', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'set-text', stableId: stableId, value: 'test@example.com' } });
+          });
+        });
+        document.getElementById('afa-demo-textarea').addEventListener('click', function () {
+          const stableId = findStableId('bio');
+          runDemo('set-textarea #bio', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'set-textarea', stableId: stableId, value: 'Hello' } });
+          });
+        });
+        document.getElementById('afa-demo-checkbox').addEventListener('click', function () {
+          const stableId = findCheckboxStableId('interests');
+          runDemo('check interests', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'check', stableId: stableId } });
+          });
+        });
+        document.getElementById('afa-demo-radio').addEventListener('click', function () {
+          const stableId = findRadioStableId('tier', 'team');
+          runDemo('select-radio tier=team', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'select-radio', stableId: stableId, value: 'team' } });
+          });
+        });
+        document.getElementById('afa-demo-select').addEventListener('click', function () {
+          const stableId = findStableId('country');
+          runDemo('select-option by text', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'select-option', stableId: stableId, by: 'text', value: 'India' } });
+          });
+        });
+        document.getElementById('afa-demo-date').addEventListener('click', function () {
+          const stableId = findStableId('dob');
+          runDemo('set-date dob=1990-01-15', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'set-date', stableId: stableId, value: '1990-01-15' } });
+          });
+        });
+        document.getElementById('afa-demo-time').addEventListener('click', function () {
+          const stableId = findStableId('appointment-time');
+          runDemo('set-time 09:30', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'set-time', stableId: stableId, value: '09:30' } });
+          });
+        });
+        document.getElementById('afa-demo-button').addEventListener('click', function () {
+          const stableId = findSubmitStableId('Apply filters');
+          runDemo('click-button', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'click-button', stableId: stableId } });
+          });
+        });
+        document.getElementById('afa-demo-disabled').addEventListener('click', function () {
+          const stableId = findStableId('disabled-text');
+          runDemo('set-text on disabled (should fail)', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'set-text', stableId: stableId, value: 'nope' } });
+          });
+        });
+        document.getElementById('afa-demo-wrong').addEventListener('click', function () {
+          const stableId = findStableId('country');
+          runDemo('select-option wrong value', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'select-option', stableId: stableId, by: 'value', value: 'xx' } });
+          });
+        });
+        document.getElementById('afa-demo-missing').addEventListener('click', function () {
+          runDemo('interact with missing field', function () {
+            return window.__AFA_INTERACT__({ payload: { kind: 'set-text', stableId: 'does_not_exist', value: 'x' } });
+          });
         });
       })();
     </script>

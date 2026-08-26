@@ -65,6 +65,22 @@ export interface FormOption {
   disabled: boolean;
 }
 
+export interface FieldTarget {
+  id: string;
+  name: string;
+  tag: string;
+  type: string;
+  formId: string;
+  formName: string;
+  label: string;
+  ariaLabel: string;
+  placeholder: string;
+  autocomplete: string;
+  radioName?: string;
+  pathIndex: number;
+  selector: string;
+}
+
 export interface FormField {
   stableId: string;
   tag: string;
@@ -85,6 +101,20 @@ export interface FormField {
   options: FormOption[];
   valuePresent: boolean;
   containsSensitiveValue: boolean;
+  target: FieldTarget;
+}
+
+export interface SubmitTarget {
+  id: string;
+  name: string;
+  tag: string;
+  type: string;
+  text: string;
+  ariaLabel: string;
+  formId: string;
+  formName: string;
+  pathIndex: number;
+  selector: string;
 }
 
 export interface FormSubmitControl {
@@ -95,6 +125,7 @@ export interface FormSubmitControl {
   ariaLabel: string;
   disabled: boolean;
   visible: boolean;
+  target: SubmitTarget;
 }
 
 export interface FormMetadata {
@@ -142,3 +173,23 @@ export interface ScanPageMessage {
 export interface GetDetectionMessage {
   type: typeof GET_DETECTION_MESSAGE;
 }
+
+export {
+  INTERACT_MESSAGE,
+  INTERACT_DEMO_MESSAGE,
+} from './interaction';
+export type {
+  InteractionRequest,
+  InteractionResult,
+  InteractionObservedState,
+  InteractionKind,
+  InteractMessage,
+  InteractDemoMessage,
+  SetTextRequest,
+  CheckboxRequest,
+  RadioRequest,
+  SelectOptionRequest,
+  SetDateRequest,
+  SetTimeRequest,
+  ClickButtonRequest,
+} from './interaction';

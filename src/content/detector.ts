@@ -1,5 +1,6 @@
 import { inferSemanticHint } from '../shared/semantics';
 import type {
+  FieldTarget,
   FormField,
   FormGroup,
   FormGroupKind,
@@ -8,6 +9,7 @@ import type {
   FormPage,
   FormSemanticHint,
   FormSubmitControl,
+  SubmitTarget,
 } from '../shared/types';
 
 const SUPPORTED_INPUT_TYPES = new Set([
@@ -183,7 +185,103 @@ function extractOptions(select: HTMLSelectElement): FormOption[] {
   return opts;
 }
 
-function buildField(el: FormElement, groupId: string, groupFieldIndex: number): FormField {
+function cssEscape(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  return value.replace(/([!"#$%&'()*+,./:;<=>?@[\]^`{|}~])/g, '\\$1');
+}
+
+function buildSelector(el: FormElement): string {
+  const tag = el.tagName.toLowerCase();
+  if (el.id) {
+    return `${tag}#${cssEscape(el.id)}`;
+  }
+  const name = el.getAttribute('name');
+  if (name) {
+    return `${tag}[name="${name.replace(/"/g, '\\"')}"]`;
+  }
+  return tag;
+}
+
+function pathIndexWithinScope(el: FormElement, owner: HTMLFormElement | null): number {
+  const root: ParentNode = owner ?? document;
+  const tag = el.tagName.toLowerCase();
+  const type = (el as HTMLInputElement).type;
+  const same = Array.from(root.querySelectorAll(tag)).filter((n) => {
+    if (!(n instanceof HTMLElement)) return false;
+    if (n === el) return true;
+    if (tag === 'input') {
+      return (n as HTMLInputElement).type === type;
+    }
+    return true;
+  });
+  return same.indexOf(el);
+}
+
+function buildFieldTarget(
+  el: FormElement,
+  owner: HTMLFormElement | null,
+  label: string,
+): FieldTarget {
+  const tag = el.tagName.toLowerCase();
+  const type = el instanceof HTMLInputElement ? (el.type || 'text') : tag;
+  const id = el.getAttribute('id') ?? '';
+  const name = el.getAttribute('name') ?? '';
+  const ariaLabel = el.getAttribute('aria-label') ?? '';
+  const placeholder = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+    ? el.getAttribute('placeholder') ?? ''
+    : '';
+  const autocomplete = el.getAttribute('autocomplete') ?? '';
+  const formId = owner ? (owner.id ?? '') : '';
+  const formName = owner ? (owner.getAttribute('name') ?? '') : '';
+  const radioName = type === 'radio' ? name : undefined;
+  const pathIndex = pathIndexWithinScope(el, owner);
+  const selector = buildSelector(el);
+  return {
+    id,
+    name,
+    tag,
+    type,
+    formId,
+    formName,
+    label,
+    ariaLabel,
+    placeholder,
+    autocomplete,
+    radioName,
+    pathIndex,
+    selector,
+  };
+}
+
+function buildSubmitTarget(
+  el: FormElement,
+  owner: HTMLFormElement | null,
+): SubmitTarget {
+  const tag = el.tagName.toLowerCase();
+  const type = el instanceof HTMLInputElement
+    ? (el.type || 'submit')
+    : ((el as HTMLButtonElement).type || 'submit');
+  const id = el.getAttribute('id') ?? '';
+  const name = el.getAttribute('name') ?? '';
+  const text = (el.textContent ?? '').trim();
+  const ariaLabel = el.getAttribute('aria-label') ?? '';
+  const formId = owner ? (owner.id ?? '') : '';
+  const formName = owner ? (owner.getAttribute('name') ?? '') : '';
+  const pathIndex = pathIndexWithinScope(el, owner);
+  const selector = buildSelector(el);
+  return { id, name, tag, type, text, ariaLabel, formId, formName, pathIndex, selector };
+}
+
+export const liveElements = new Map<string, WeakRef<HTMLElement>>();
+
+function buildField(
+  el: FormElement,
+  groupId: string,
+  groupFieldIndex: number,
+  owner: HTMLFormElement | null,
+): FormField {
   const tag = el.tagName.toLowerCase();
   const id = el.getAttribute('id') ?? '';
   const name = el.getAttribute('name') ?? '';
@@ -214,17 +312,41 @@ function buildField(el: FormElement, groupId: string, groupFieldIndex: number): 
   let options: FormOption[] = [];
   if (el instanceof HTMLSelectElement) {
     options = extractOptions(el);
+  } else if (el instanceof HTMLInputElement && el.type === 'radio') {
+    const v = el.value ?? '';
+    options = [{
+      value: v,
+      text: (el.getAttribute('aria-label') ?? '').trim() || v,
+      selected: el.checked,
+      disabled: el.disabled,
+    }];
   }
 
   const stableId = `${groupId}.f${groupFieldIndex}`;
+  liveElements.set(stableId, new WeakRef(el));
+
   const valuePresent = getValuePresent(el);
   const sensitive = containsSensitiveValue(el);
+  const target = buildFieldTarget(el, owner, label);
+
+  let controlType: FormField['controlType'] = 'input-text';
+  if (tag === 'input') {
+    if (SUPPORTED_INPUT_TYPES.has(type)) {
+      controlType = `input-${type}` as FormField['controlType'];
+    }
+  } else if (tag === 'textarea') {
+    controlType = 'textarea';
+  } else if (tag === 'select') {
+    controlType = 'select';
+  } else if (tag === 'button') {
+    controlType = 'button';
+  }
 
   return {
     stableId,
     tag,
     type,
-    controlType: (`${tag === 'input' ? 'input' : tag}-${type}`) as FormField['controlType'],
+    controlType,
     name,
     id,
     label,
@@ -240,22 +362,32 @@ function buildField(el: FormElement, groupId: string, groupFieldIndex: number): 
     options,
     valuePresent,
     containsSensitiveValue: sensitive,
+    target,
   };
 }
 
-function buildSubmitControl(el: FormElement, groupId: string, index: number): FormSubmitControl {
+function buildSubmitControl(
+  el: FormElement,
+  groupId: string,
+  index: number,
+  owner: HTMLFormElement | null,
+): FormSubmitControl {
   const tag = el.tagName.toLowerCase();
   const type = tag === 'input' ? ((el as HTMLInputElement).type || 'submit') : ((el as HTMLButtonElement).type || 'submit');
   const text = (el.textContent ?? '').trim();
   const ariaLabel = el.getAttribute('aria-label') ?? '';
+  const stableId = `${groupId}.s${index}`;
+  liveElements.set(stableId, new WeakRef(el));
+
   return {
-    stableId: `${groupId}.s${index}`,
+    stableId,
     tag,
     type,
     text,
     ariaLabel,
     disabled: isDisabled(el),
     visible: isElementVisible(el),
+    target: buildSubmitTarget(el, owner),
   };
 }
 
@@ -321,7 +453,7 @@ function detectFromRealForms(forms: HTMLFormElement[]): { groups: FormGroup[]; a
       if (isSubmitControl(d)) {
         if (!seen.has(d)) {
           seen.add(d);
-          submits.push(buildSubmitControl(d, groupId, submits.length));
+          submits.push(buildSubmitControl(d, groupId, submits.length, form));
           assigned.add(d);
         }
         continue;
@@ -329,7 +461,7 @@ function detectFromRealForms(forms: HTMLFormElement[]): { groups: FormGroup[]; a
       if (!isCandidateControl(d)) continue;
       if (seen.has(d)) continue;
       seen.add(d);
-      fields.push(buildField(d, groupId, fields.length));
+      fields.push(buildField(d, groupId, fields.length, form));
       assigned.add(d);
     }
 
@@ -372,9 +504,9 @@ function collectExternalControls(
     const group = groups[gIdx];
     const groupId = group.metadata.stableId;
     if (isSubmitControl(el)) {
-      group.submitControls.push(buildSubmitControl(el, groupId, group.submitControls.length));
+      group.submitControls.push(buildSubmitControl(el, groupId, group.submitControls.length, owner));
     } else {
-      group.fields.push(buildField(el, groupId, group.fields.length));
+      group.fields.push(buildField(el, groupId, group.fields.length, owner));
     }
     group.metadata.fieldCount = group.fields.length;
     group.metadata.submitCount = group.submitControls.length;
@@ -410,9 +542,9 @@ function buildLogicalGroup(loose: FormElement[], index: number): FormGroup {
 
   for (const el of sorted) {
     if (isSubmitControl(el)) {
-      submits.push(buildSubmitControl(el, groupId, submits.length));
+      submits.push(buildSubmitControl(el, groupId, submits.length, null));
     } else {
-      fields.push(buildField(el, groupId, fields.length));
+      fields.push(buildField(el, groupId, fields.length, null));
     }
   }
 
@@ -433,6 +565,7 @@ function buildLogicalGroup(loose: FormElement[], index: number): FormGroup {
 }
 
 export function detectPage(): FormPage {
+  liveElements.clear();
   const forms = Array.from(document.querySelectorAll('form'));
   const { groups, assigned, groupIndexByForm } = detectFromRealForms(forms);
 
