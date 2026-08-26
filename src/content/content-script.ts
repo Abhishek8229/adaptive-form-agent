@@ -1,28 +1,25 @@
-import { detectFormControls } from './detector';
+import { detectPage } from './detector';
 import {
   FORM_DETECTED_MESSAGE,
   GET_DETECTION_MESSAGE,
   SCAN_PAGE_MESSAGE,
-  type FormDetectionResult,
   type FormDetectedMessage,
+  type FormPage,
   type GetDetectionMessage,
   type ScanPageMessage,
 } from '../shared/types';
 
-let lastResult: FormDetectionResult | null = null;
+let lastResult: FormPage | null = null;
+let pendingHandle: ReturnType<typeof setTimeout> | null = null;
+const DEBOUNCE_MS = 250;
 
-function captureResult(): FormDetectionResult {
-  const controls = detectFormControls(document);
-  const result: FormDetectionResult = {
-    url: location.href,
-    detectedAt: new Date().toISOString(),
-    controls,
-  };
+function captureResult(): FormPage {
+  const result = detectPage();
   lastResult = result;
   return result;
 }
 
-function broadcast(result: FormDetectionResult): void {
+function broadcast(result: FormPage): void {
   const message: FormDetectedMessage = { type: FORM_DETECTED_MESSAGE, payload: result };
   try {
     chrome.runtime.sendMessage(message).catch(() => {});
@@ -31,6 +28,19 @@ function broadcast(result: FormDetectionResult): void {
 }
 
 function scheduleScan(): void {
+  if (pendingHandle != null) clearTimeout(pendingHandle);
+  pendingHandle = setTimeout(() => {
+    pendingHandle = null;
+    const result = captureResult();
+    broadcast(result);
+  }, DEBOUNCE_MS);
+}
+
+function runImmediateScan(): void {
+  if (pendingHandle != null) {
+    clearTimeout(pendingHandle);
+    pendingHandle = null;
+  }
   const result = captureResult();
   broadcast(result);
 }
@@ -43,18 +53,22 @@ observer.observe(document.documentElement, {
   childList: true,
   subtree: true,
   attributes: true,
-  attributeFilter: ['type', 'name', 'id', 'placeholder', 'aria-label', 'aria-labelledby', 'required', 'hidden', 'style', 'class', 'disabled'],
+  attributeFilter: [
+    'type', 'name', 'id', 'placeholder', 'value', 'checked', 'selected',
+    'aria-label', 'aria-labelledby', 'aria-required', 'aria-disabled', 'aria-hidden',
+    'required', 'disabled', 'readonly', 'hidden', 'style', 'class', 'form', 'autocomplete',
+  ],
 });
 
-scheduleScan();
+runImmediateScan();
 
 chrome.runtime.onMessage.addListener((message: ScanPageMessage | GetDetectionMessage, _sender, sendResponse) => {
   if (!message || typeof message !== 'object') return;
 
   if (message.type === SCAN_PAGE_MESSAGE) {
-    const result = captureResult();
-    broadcast(result);
-    sendResponse({ ok: true, count: result.controls.length });
+    runImmediateScan();
+    const count = lastResult?.totalFieldCount ?? 0;
+    sendResponse({ ok: true, count, formCount: lastResult?.formCount ?? 0 });
     return true;
   }
 

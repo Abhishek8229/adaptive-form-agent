@@ -3,6 +3,7 @@ import {
   SCAN_PAGE_MESSAGE,
   GET_DETECTION_MESSAGE,
   type FormDetectedMessage,
+  type FormPage,
 } from '../shared/types';
 
 interface RuntimeMessage {
@@ -10,7 +11,7 @@ interface RuntimeMessage {
 }
 
 interface TabState {
-  lastDetection: FormDetectedMessage['payload'] | null;
+  lastDetection: FormPage | null;
   updatedAt: number;
 }
 

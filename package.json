@@ -9,7 +9,8 @@
     "build:ts": "esbuild src/background/service-worker.ts src/content/content-script.ts src/popup/popup.ts --bundle --outdir=dist --outbase=src --format=esm --target=chrome120 --sourcemap",
     "build:copy": "node scripts/copy-static.js",
     "watch": "npm run build && esbuild src/background/service-worker.ts src/content/content-script.ts src/popup/popup.ts --bundle --outdir=dist --outbase=src --format=esm --target=chrome120 --sourcemap --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --no-warnings --test tests/semantics.test.ts tests/test-page.test.ts"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.270",

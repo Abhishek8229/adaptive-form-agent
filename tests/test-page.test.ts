@@ -1,0 +1,98 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const testPagePath = resolve(__dirname, '..', 'test', 'test-page.html');
+
+function readTestPage(): string {
+  return readFileSync(testPagePath, 'utf8');
+}
+
+test('test page: contains a real <form> with id signup-form', () => {
+  const html = readTestPage();
+  assert.match(html, /<form[^>]+id="signup-form"/);
+});
+
+test('test page: uses explicit <label for=...>', () => {
+  const html = readTestPage();
+  const explicitLabels = (html.match(/<label\s+for="/g) ?? []).length;
+  assert.ok(explicitLabels >= 10, `expected >=10 explicit labels, got ${explicitLabels}`);
+});
+
+test('test page: uses aria-label', () => {
+  const html = readTestPage();
+  const aria = (html.match(/aria-label="/g) ?? []).length;
+  assert.ok(aria >= 4, `expected >=4 aria-labels, got ${aria}`);
+});
+
+test('test page: has a <select> with options', () => {
+  const html = readTestPage();
+  assert.match(html, /<select[^>]*id="country"/);
+  const optionCount = (html.match(/<option\b/g) ?? []).length;
+  assert.ok(optionCount >= 3, `expected >=3 options, got ${optionCount}`);
+});
+
+test('test page: has a radio group', () => {
+  const html = readTestPage();
+  assert.match(html, /<legend>Subscription tier<\/legend>/);
+  const radios = (html.match(/type="radio"/g) ?? []).length;
+  assert.ok(radios >= 3, `expected >=3 radios, got ${radios}`);
+});
+
+test('test page: has a checkbox group', () => {
+  const html = readTestPage();
+  assert.match(html, /<legend>Interests<\/legend>/);
+  const checkboxes = (html.match(/type="checkbox"/g) ?? []).length;
+  assert.ok(checkboxes >= 3, `expected >=3 checkboxes, got ${checkboxes}`);
+});
+
+test('test page: includes required fields', () => {
+  const html = readTestPage();
+  const required = (html.match(/\brequired\b/g) ?? []).length;
+  assert.ok(required >= 4, `expected >=4 required attrs, got ${required}`);
+});
+
+test('test page: includes disabled controls', () => {
+  const html = readTestPage();
+  assert.match(html, /\bdisabled\b/);
+});
+
+test('test page: includes readonly control', () => {
+  const html = readTestPage();
+  assert.match(html, /\breadonly\b/);
+});
+
+test('test page: uses autocomplete tokens', () => {
+  const html = readTestPage();
+  const tokens = ['email', 'name', 'username', 'new-password', 'tel', 'street-address',
+    'address-line2', 'address-level2', 'address-level1', 'postal-code', 'country', 'bday', 'url'];
+  for (const t of tokens) {
+    assert.ok(html.includes(`autocomplete="${t}"`), `missing autocomplete="${t}"`);
+  }
+});
+
+test('test page: has controls outside the form using form="" attribute', () => {
+  const html = readTestPage();
+  assert.match(html, /form="signup-form"/);
+});
+
+test('test page: has a no-form region with controls', () => {
+  const html = readTestPage();
+  assert.match(html, /id="no-form-region"/);
+  assert.match(html, /Search/);
+});
+
+test('test page: has buttons to trigger dynamic insertion', () => {
+  const html = readTestPage();
+  assert.match(html, /id="add-field-btn"/);
+  assert.match(html, /id="add-form-btn"/);
+});
+
+test('test page: has inline JS for dynamic control insertion', () => {
+  const html = readTestPage();
+  assert.match(html, /addEventListener\(['"]click['"]/);
+  assert.match(html, /createElement\(['"]form['"]\)/);
+});

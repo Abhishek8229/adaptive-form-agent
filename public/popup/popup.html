@@ -9,7 +9,7 @@
   <body>
     <header>
       <h1>Adaptive Form Agent</h1>
-      <p class="subtitle">Foundation phase - detector only</p>
+      <p class="subtitle">Structured form view (no AI yet)</p>
     </header>
 
     <section class="actions">
@@ -21,14 +21,20 @@
     </section>
 
     <section class="summary">
-      <div class="row"><span class="label">Controls:</span><span id="count">0</span></div>
+      <div class="row"><span class="label">Forms:</span><span id="form-count">0</span></div>
+      <div class="row"><span class="label">Fields:</span><span id="count">0</span></div>
       <div class="row"><span class="label">URL:</span><span id="url" class="ellipsis"></span></div>
       <div class="row"><span class="label">Detected:</span><span id="detected-at">-</span></div>
     </section>
 
     <section class="legend">
-      <h2>Counts by type</h2>
+      <h2>Counts by control type</h2>
       <ul id="type-list"></ul>
+    </section>
+
+    <section class="forms">
+      <h2>Forms detected</h2>
+      <div id="forms-container" class="forms-list"></div>
     </section>
 
     <script type="module" src="popup.js"></script>

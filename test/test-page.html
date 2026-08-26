@@ -3,123 +3,239 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AFA Test Page - Form Controls</title>
+    <title>AFA Test Page - Structured Form Coverage</title>
     <style>
-      body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
+      body { font-family: system-ui, -apple-system, sans-serif; max-width: 820px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
       fieldset { margin: 16px 0; padding: 12px 16px; border: 1px solid #ccc; border-radius: 6px; }
       legend { padding: 0 6px; font-weight: 600; }
       label { display: block; margin: 8px 0 2px; font-size: 13px; }
+      label.inline { display: inline; margin-right: 12px; }
       input, select, textarea, button { font: inherit; padding: 4px 6px; }
-      .row { display: flex; gap: 12px; align-items: center; }
+      .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      .hint { font-size: 11px; opacity: 0.7; }
       .hidden-vis { visibility: hidden; }
       .display-none { display: none; }
       .opacity-zero { opacity: 0; }
+      #dynamic-anchor { margin-top: 12px; padding: 8px; border: 1px dashed #aaa; border-radius: 6px; }
     </style>
   </head>
   <body>
-    <h1>Adaptive Form Agent - Test Page</h1>
-    <p>Open this page with the extension loaded. The content script should detect every control below.</p>
+    <h1>Adaptive Form Agent - Structured Test Page</h1>
+    <p>Covers: real <code>&lt;form&gt;</code>, multiple label styles, aria labels, select with options, radio groups, checkbox groups, required, disabled, readonly, autocomplete, <code>form=""</code> association, no-form region, and dynamic insertion.</p>
 
-    <form id="test-form" novalidate>
+    <form id="signup-form" action="/signup" method="post" autocomplete="on" aria-label="Sign up form">
       <fieldset>
-        <legend>Text-like inputs</legend>
+        <legend>Account</legend>
 
         <label for="full-name">Full name</label>
-        <input id="full-name" name="fullName" type="text" placeholder="Jane Doe" required />
+        <input id="full-name" name="fullName" type="text" placeholder="Jane Doe" autocomplete="name" required />
 
         <label for="email">Email</label>
-        <input id="email" name="email" type="email" placeholder="jane@example.com" required />
+        <input id="email" name="email" type="email" placeholder="jane@example.com" autocomplete="email" required />
+
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required />
 
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" />
+        <input id="password" name="password" type="password" autocomplete="new-password" required />
 
-        <label for="phone">Phone</label>
-        <input id="phone" name="phone" type="tel" aria-label="Phone number" />
+        <label for="phone">Phone number</label>
+        <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="+1 555 0100" />
+      </fieldset>
 
-        <label for="website">Website</label>
-        <input id="website" name="website" type="url" placeholder="https://example.com" />
+      <fieldset>
+        <legend>Profile</legend>
 
-        <label for="search-q">Search</label>
-        <input id="search-q" name="q" type="search" placeholder="Search..." />
+        <label for="bio">Short bio</label>
+        <textarea id="bio" name="bio" rows="3" placeholder="Tell us about yourself"></textarea>
+
+        <label for="website">Personal website</label>
+        <input id="website" name="website" type="url" autocomplete="url" placeholder="https://example.com" />
+
+        <label for="dob">Date of birth</label>
+        <input id="dob" name="dob" type="date" autocomplete="bday" />
 
         <label for="age">Age</label>
-        <input id="age" name="age" type="number" min="0" max="120" />
+        <input id="age" name="age" type="number" min="0" max="120" readonly value="30" />
       </fieldset>
 
       <fieldset>
-        <legend>Date / time</legend>
-        <label for="dob">Date of birth</label>
-        <input id="dob" name="dob" type="date" />
-        <label for="appt">Appointment time</label>
-        <input id="appt" name="appt" type="time" />
-        <label for="when">When</label>
-        <input id="when" name="when" type="datetime-local" />
-        <label for="exp-month">Expiry month</label>
-        <input id="exp-month" name="expMonth" type="month" />
-        <label for="exp-week">Week</label>
-        <input id="exp-week" name="expWeek" type="week" />
-      </fieldset>
+        <legend>Address</legend>
 
-      <fieldset>
-        <legend>Choice controls</legend>
+        <label for="addr1">Street address</label>
+        <input id="addr1" name="addr1" type="text" autocomplete="street-address" />
+
+        <label for="addr2">Apartment, suite, unit</label>
+        <input id="addr2" name="addr2" type="text" autocomplete="address-line2" />
+
+        <label for="city">City</label>
+        <input id="city" name="city" type="text" autocomplete="address-level2" />
+
+        <label for="state">State / region</label>
+        <input id="state" name="state" type="text" autocomplete="address-level1" />
+
+        <label for="zip">Postal code</label>
+        <input id="zip" name="zip" type="text" autocomplete="postal-code" />
 
         <label for="country">Country</label>
-        <select id="country" name="country" required>
+        <select id="country" name="country" autocomplete="country" required>
           <option value="">Select...</option>
-          <option value="us">United States</option>
+          <option value="us" selected>United States</option>
           <option value="uk">United Kingdom</option>
           <option value="in">India</option>
+          <option value="de" disabled>Germany (disabled option)</option>
         </select>
+      </fieldset>
 
-        <label for="bio">Bio</label>
-        <textarea id="bio" name="bio" rows="3" placeholder="Tell us about yourself"></textarea>
+      <fieldset>
+        <legend>Preferences</legend>
 
         <fieldset>
           <legend>Subscription tier</legend>
-          <label><input type="radio" name="tier" value="free" /> Free</label>
-          <label><input type="radio" name="tier" value="pro" checked /> Pro</label>
-          <label><input type="radio" name="tier" value="team" /> Team</label>
+          <label class="inline"><input type="radio" name="tier" value="free" /> Free</label>
+          <label class="inline"><input type="radio" name="tier" value="pro" checked /> Pro</label>
+          <label class="inline"><input type="radio" name="tier" value="team" /> Team</label>
         </fieldset>
 
         <fieldset>
           <legend>Interests</legend>
-          <label><input type="checkbox" name="interests" value="ai" /> AI</label>
-          <label><input type="checkbox" name="interests" value="web" /> Web</label>
-          <label><input type="checkbox" name="interests" value="devops" /> DevOps</label>
+          <label class="inline"><input type="checkbox" name="interests" value="ai" /> AI</label>
+          <label class="inline"><input type="checkbox" name="interests" value="web" checked /> Web</label>
+          <label class="inline"><input type="checkbox" name="interests" value="devops" /> DevOps</label>
         </fieldset>
-      </fieldset>
-
-      <fieldset>
-        <legend>File + range + color</legend>
-
-        <label for="resume">Upload resume</label>
-        <input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" />
 
         <label for="volume">Volume</label>
         <input id="volume" name="volume" type="range" min="0" max="100" value="40" />
 
         <label for="color">Favorite color</label>
         <input id="color" name="color" type="color" value="#3366ff" />
+
+        <label for="resume">Upload resume</label>
+        <input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" />
       </fieldset>
 
       <fieldset>
         <legend>Buttons</legend>
         <div class="row">
-          <button type="submit">Submit</button>
+          <button type="submit">Create account</button>
           <button type="reset">Reset</button>
-          <input type="button" value="Input Button" />
-          <input type="submit" value="Input Submit" />
+          <input type="button" value="Help" />
+          <input type="image" src="" alt="Submit via image" />
         </div>
       </fieldset>
-
-      <fieldset>
-        <legend>Visibility edge cases (still detected if not display:none)</legend>
-        <label for="hidden-input" class="display-none">Should not be visible</label>
-        <input id="hidden-input" class="display-none" type="text" name="hiddenByDisplay" />
-        <input id="vis-hidden" class="hidden-vis" type="text" name="visHidden" aria-label="visibility hidden" />
-        <input id="zero-opacity" class="opacity-zero" type="text" name="zeroOpacity" aria-label="zero opacity" />
-        <input id="aria-hidden" type="text" name="ariaHidden" aria-hidden="true" aria-label="aria hidden" value="should be invisible" />
-      </fieldset>
     </form>
+
+    <hr />
+
+    <h2>Disabled fields (separate fieldset, inside the same form not used)</h2>
+    <fieldset>
+      <legend>Disabled controls</legend>
+      <label for="disabled-text">Disabled text</label>
+      <input id="disabled-text" type="text" value="cannot edit" disabled />
+      <label for="disabled-select">Disabled select</label>
+      <select id="disabled-select" disabled>
+        <option>A</option>
+        <option>B</option>
+      </select>
+      <label for="disabled-textarea">Disabled textarea</label>
+      <textarea id="disabled-textarea" disabled>locked</textarea>
+    </fieldset>
+
+    <hr />
+
+    <h2>Control associated with the form via <code>form=""</code> attribute (placed outside the form)</h2>
+    <input form="signup-form" type="text" name="externalCoupon" placeholder="Coupon code" />
+    <button form="signup-form" type="submit">Apply coupon (outside form)</button>
+
+    <hr />
+
+    <h2>Region with no <code>&lt;form&gt;</code> wrapper (logical form)</h2>
+    <section id="no-form-region" data-afa-region="filter">
+      <h3>Search & filter (no <code>&lt;form&gt;</code> element)</h3>
+      <div class="row">
+        <input type="search" name="q" placeholder="Search products" aria-label="Search products" />
+        <select name="category" aria-label="Category">
+          <option value="all">All</option>
+          <option value="books">Books</option>
+          <option value="games" selected>Games</option>
+        </select>
+        <input type="number" name="minPrice" placeholder="Min price" aria-label="Minimum price" />
+        <input type="number" name="maxPrice" placeholder="Max price" aria-label="Maximum price" />
+        <button type="button">Apply filters</button>
+      </div>
+    </section>
+
+    <hr />
+
+    <h2>Visibility edge cases</h2>
+    <fieldset>
+      <legend>Visibility</legend>
+      <label for="hidden-input" class="display-none">Display none</label>
+      <input id="hidden-input" class="display-none" type="text" name="hiddenByDisplay" />
+      <input class="hidden-vis" type="text" name="visHidden" aria-label="visibility hidden" />
+      <input class="opacity-zero" type="text" name="zeroOpacity" aria-label="zero opacity" />
+      <input id="aria-hidden" type="text" name="ariaHidden" aria-hidden="true" aria-label="aria hidden" value="should be invisible" />
+    </fieldset>
+
+    <hr />
+
+    <h2>Dynamic insertion</h2>
+    <div class="row">
+      <button id="add-field-btn" type="button">Add dynamic field</button>
+      <button id="add-form-btn" type="button">Add dynamic form</button>
+      <span class="hint">MutationObserver should pick these up after debounce.</span>
+    </div>
+    <div id="dynamic-anchor"></div>
+
+    <script>
+      (function () {
+        let dynCount = 0;
+        document.getElementById('add-field-btn').addEventListener('click', function () {
+          dynCount += 1;
+          const wrap = document.getElementById('dynamic-anchor');
+          const id = 'dyn-' + dynCount;
+          const label = document.createElement('label');
+          label.htmlFor = id;
+          label.textContent = 'Dynamic field #' + dynCount;
+          const input = document.createElement('input');
+          input.id = id;
+          input.name = 'dynamic_' + dynCount;
+          input.type = 'email';
+          input.placeholder = 'dynamic@example.com';
+          wrap.appendChild(label);
+          wrap.appendChild(input);
+        });
+
+        let formCount = 0;
+        document.getElementById('add-form-btn').addEventListener('click', function () {
+          formCount += 1;
+          const wrap = document.getElementById('dynamic-anchor');
+          const f = document.createElement('form');
+          f.id = 'dyn-form-' + formCount;
+          f.action = '/dyn';
+          f.method = 'post';
+          const lg = document.createElement('legend');
+          lg.textContent = 'Dynamic form #' + formCount;
+          const fs = document.createElement('fieldset');
+          fs.appendChild(lg);
+          const label = document.createElement('label');
+          const id = 'df-' + formCount;
+          label.htmlFor = id;
+          label.textContent = 'Dynamic field';
+          const input = document.createElement('input');
+          input.id = id;
+          input.name = 'dynField';
+          input.type = 'text';
+          const btn = document.createElement('button');
+          btn.type = 'submit';
+          btn.textContent = 'Submit dyn';
+          fs.appendChild(label);
+          fs.appendChild(input);
+          f.appendChild(fs);
+          f.appendChild(btn);
+          wrap.appendChild(f);
+        });
+      })();
+    </script>
   </body>
 </html>
