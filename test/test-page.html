@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AFA Test Page - Form Controls</title>
+    <style>
+      body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
+      fieldset { margin: 16px 0; padding: 12px 16px; border: 1px solid #ccc; border-radius: 6px; }
+      legend { padding: 0 6px; font-weight: 600; }
+      label { display: block; margin: 8px 0 2px; font-size: 13px; }
+      input, select, textarea, button { font: inherit; padding: 4px 6px; }
+      .row { display: flex; gap: 12px; align-items: center; }
+      .hidden-vis { visibility: hidden; }
+      .display-none { display: none; }
+      .opacity-zero { opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Adaptive Form Agent - Test Page</h1>
+    <p>Open this page with the extension loaded. The content script should detect every control below.</p>
+
+    <form id="test-form" novalidate>
+      <fieldset>
+        <legend>Text-like inputs</legend>
+
+        <label for="full-name">Full name</label>
+        <input id="full-name" name="fullName" type="text" placeholder="Jane Doe" required />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" placeholder="jane@example.com" required />
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" />
+
+        <label for="phone">Phone</label>
+        <input id="phone" name="phone" type="tel" aria-label="Phone number" />
+
+        <label for="website">Website</label>
+        <input id="website" name="website" type="url" placeholder="https://example.com" />
+
+        <label for="search-q">Search</label>
+        <input id="search-q" name="q" type="search" placeholder="Search..." />
+
+        <label for="age">Age</label>
+        <input id="age" name="age" type="number" min="0" max="120" />
+      </fieldset>
+
+      <fieldset>
+        <legend>Date / time</legend>
+        <label for="dob">Date of birth</label>
+        <input id="dob" name="dob" type="date" />
+        <label for="appt">Appointment time</label>
+        <input id="appt" name="appt" type="time" />
+        <label for="when">When</label>
+        <input id="when" name="when" type="datetime-local" />
+        <label for="exp-month">Expiry month</label>
+        <input id="exp-month" name="expMonth" type="month" />
+        <label for="exp-week">Week</label>
+        <input id="exp-week" name="expWeek" type="week" />
+      </fieldset>
+
+      <fieldset>
+        <legend>Choice controls</legend>
+
+        <label for="country">Country</label>
+        <select id="country" name="country" required>
+          <option value="">Select...</option>
+          <option value="us">United States</option>
+          <option value="uk">United Kingdom</option>
+          <option value="in">India</option>
+        </select>
+
+        <label for="bio">Bio</label>
+        <textarea id="bio" name="bio" rows="3" placeholder="Tell us about yourself"></textarea>
+
+        <fieldset>
+          <legend>Subscription tier</legend>
+          <label><input type="radio" name="tier" value="free" /> Free</label>
+          <label><input type="radio" name="tier" value="pro" checked /> Pro</label>
+          <label><input type="radio" name="tier" value="team" /> Team</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Interests</legend>
+          <label><input type="checkbox" name="interests" value="ai" /> AI</label>
+          <label><input type="checkbox" name="interests" value="web" /> Web</label>
+          <label><input type="checkbox" name="interests" value="devops" /> DevOps</label>
+        </fieldset>
+      </fieldset>
+
+      <fieldset>
+        <legend>File + range + color</legend>
+
+        <label for="resume">Upload resume</label>
+        <input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" />
+
+        <label for="volume">Volume</label>
+        <input id="volume" name="volume" type="range" min="0" max="100" value="40" />
+
+        <label for="color">Favorite color</label>
+        <input id="color" name="color" type="color" value="#3366ff" />
+      </fieldset>
+
+      <fieldset>
+        <legend>Buttons</legend>
+        <div class="row">
+          <button type="submit">Submit</button>
+          <button type="reset">Reset</button>
+          <input type="button" value="Input Button" />
+          <input type="submit" value="Input Submit" />
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Visibility edge cases (still detected if not display:none)</legend>
+        <label for="hidden-input" class="display-none">Should not be visible</label>
+        <input id="hidden-input" class="display-none" type="text" name="hiddenByDisplay" />
+        <input id="vis-hidden" class="hidden-vis" type="text" name="visHidden" aria-label="visibility hidden" />
+        <input id="zero-opacity" class="opacity-zero" type="text" name="zeroOpacity" aria-label="zero opacity" />
+        <input id="aria-hidden" type="text" name="ariaHidden" aria-hidden="true" aria-label="aria hidden" value="should be invisible" />
+      </fieldset>
+    </form>
+  </body>
+</html>

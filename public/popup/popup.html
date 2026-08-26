@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Adaptive Form Agent</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Adaptive Form Agent</h1>
+      <p class="subtitle">Foundation phase - detector only</p>
+    </header>
+
+    <section class="actions">
+      <button id="scan-btn" type="button">Scan current page</button>
+    </section>
+
+    <section class="status">
+      <div id="status">Idle</div>
+    </section>
+
+    <section class="summary">
+      <div class="row"><span class="label">Controls:</span><span id="count">0</span></div>
+      <div class="row"><span class="label">URL:</span><span id="url" class="ellipsis"></span></div>
+      <div class="row"><span class="label">Detected:</span><span id="detected-at">-</span></div>
+    </section>
+
+    <section class="legend">
+      <h2>Counts by type</h2>
+      <ul id="type-list"></ul>
+    </section>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
