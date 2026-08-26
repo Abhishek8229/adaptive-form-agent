@@ -816,3 +816,128 @@ test('interaction: 21. __AFA_LAST_PAGE is inaccessible from window', async () =>
   assert.equal((dom.window as any).__AFA_LAST_PAGE, undefined);
   dom.window.close();
 });
+
+// --- I4 framework-state verification tests ---
+
+test('I4: microtask framework revert is detected', async () => {
+  const html = `<!doctype html><html><body><form id="x"><input id="email" name="email" type="email" /></form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  const field = page.forms[0].fields[0];
+
+  const el = dom.window.document.getElementById('email') as HTMLInputElement;
+  // Simulate a controlled input whose framework schedules a re-render that
+  // reverts the value back to its original "stale" state on the next tick.
+  el.addEventListener('input', () => {
+    Promise.resolve().then(() => {
+      // Force the controlled component to "win" after the adapter has set the value.
+      const proto = Object.getPrototypeOf(el);
+      const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+      const setter = (desc?.set as ((v: string) => void) | undefined)?.bind(el);
+      if (setter) setter('stale@old.com');
+      else el.value = 'stale@old.com';
+    });
+  });
+
+  const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new@example.com' };
+  const res = await runInteraction(req);
+  assert.equal(res.success, false, JSON.stringify(res));
+  assert.match(res.reason ?? '', /value mismatch|framework/);
+  assert.equal(res.observed?.value, 'stale@old.com');
+  dom.window.close();
+});
+
+test('I4: microtask framework preserve is detected as success', async () => {
+  const html = `<!doctype html><html><body><form id="x"><input id="email" name="email" type="email" /></form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  const field = page.forms[0].fields[0];
+
+  const el = dom.window.document.getElementById('email') as HTMLInputElement;
+  // Simulate a controlled input whose framework re-applies the SAME value
+  // on the next tick (e.g. setting state to the value the adapter just wrote
+  // and re-rendering). The post-settle observation should still match.
+  el.addEventListener('input', () => {
+    Promise.resolve().then(() => {
+      const proto = Object.getPrototypeOf(el);
+      const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+      const setter = (desc?.set as ((v: string) => void) | undefined)?.bind(el);
+      if (setter) setter('keep@example.com');
+      else el.value = 'keep@example.com';
+    });
+  });
+
+  const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'keep@example.com' };
+  const res = await runInteraction(req);
+  assert.equal(res.success, true, JSON.stringify(res));
+  assert.equal(res.observed?.value, 'keep@example.com');
+  dom.window.close();
+});
+
+test('I4: microtask framework replacement of the input is reported as failure', async () => {
+  const html = `<!doctype html><html><body><form id="x"><input id="email" name="email" type="email" /></form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  const field = page.forms[0].fields[0];
+
+  const el = dom.window.document.getElementById('email') as HTMLInputElement;
+  const form = dom.window.document.getElementById('x')!;
+  // Simulate a framework that tears the input down and never re-mounts it.
+  el.addEventListener('input', () => {
+    Promise.resolve().then(() => {
+      el.remove();
+    });
+  });
+
+  const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new@example.com' };
+  const res = await runInteraction(req);
+  assert.equal(res.success, false, JSON.stringify(res));
+  assert.match(res.reason ?? '', /no longer present/);
+  // The original input really is gone from the DOM.
+  assert.equal(form.querySelector('input'), null);
+  dom.window.close();
+});
+
+test('I4: framework replacement that re-mounts a matching input is verified by re-resolve', async () => {
+  const html = `<!doctype html><html><body><form id="x"><input id="email" name="email" type="email" /></form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  const field = page.forms[0].fields[0];
+
+  const el = dom.window.document.getElementById('email') as HTMLInputElement;
+  const form = dom.window.document.getElementById('x')!;
+  // Simulate a framework that tears the input down AND re-mounts a new
+  // one with the same identity (id/name). The engine should re-resolve
+  // by stableId and confirm the new node carries the requested value.
+  el.addEventListener('input', () => {
+    Promise.resolve().then(() => {
+      el.remove();
+      const fresh = dom.window.document.createElement('input');
+      fresh.id = 'email';
+      fresh.name = 'email';
+      fresh.type = 'email';
+      form.appendChild(fresh);
+    });
+  });
+
+  const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'kept@example.com' };
+  const res = await runInteraction(req);
+  // The new input was inserted empty; without framework cooperation the
+  // requested value cannot survive. I4 must report this honestly.
+  assert.equal(res.success, false, JSON.stringify(res));
+  const final = dom.window.document.getElementById('email') as HTMLInputElement;
+  assert.equal(final.value, '');
+  dom.window.close();
+});

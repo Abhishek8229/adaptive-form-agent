@@ -17,6 +17,32 @@ import { TextareaAdapter } from './adapters/textarea';
 import { ButtonAdapter } from './adapters/button';
 import type { Adapter } from './adapter';
 
+const AFA_ANCHOR_ATTR = 'data-afa-anchor';
+
+let _anchorCounter = 0;
+function nextAnchorToken(): string {
+  _anchorCounter = (Number.isFinite(_anchorCounter) ? _anchorCounter : 0) + 1;
+  return `afa-${Date.now().toString(36)}-${_anchorCounter.toString(36)}`;
+}
+
+function anchorEl(el: HTMLElement | null | undefined, token: string): void {
+  if (!el) return;
+  try {
+    el.setAttribute(AFA_ANCHOR_ATTR, token);
+  } catch {
+  }
+}
+
+function findAnchoredEl(root: ParentNode, token: string): HTMLElement | null {
+  if (!token) return null;
+  try {
+    const el = root.querySelector(`[${AFA_ANCHOR_ATTR}="${token}"]`);
+    if (el && el instanceof HTMLElement) return el;
+  } catch {
+  }
+  return null;
+}
+
 const ADAPTERS: Adapter[] = [
   new TextLikeAdapter(),
   new TextareaAdapter(),
@@ -191,6 +217,11 @@ let _queueTail: Promise<void> = Promise.resolve();
  * Public entry point for running interactions.
  * Returns a Promise to support async callers (e.g. the AI layer).
  * Interactions are serialized: concurrent calls queue behind previous ones.
+ *
+ * I4: Adapters remain synchronous; runInteraction awaits a microtask +
+ * macrotask settle window after a successful apply so that framework-driven
+ * rerenders (React/Vue controlled inputs) have a chance to flush before
+ * the engine finalizes verification.
  */
 export function runInteraction(req: InteractionRequest): Promise<InteractionResult> {
   const task = _queueTail.then(() => executeInteraction(req));
@@ -199,7 +230,7 @@ export function runInteraction(req: InteractionRequest): Promise<InteractionResu
   return task;
 }
 
-function executeInteraction(req: InteractionRequest): InteractionResult {
+async function executeInteraction(req: InteractionRequest): Promise<InteractionResult> {
   const baseResult: InteractionResult = {
     success: false,
     stableId: req.stableId,
@@ -250,7 +281,19 @@ function executeInteraction(req: InteractionRequest): InteractionResult {
     return { ...baseResult, reason: `no adapter for kind "${req.kind}" on resolved element` };
   }
 
+  // I4: Mark the resolved element with a unique anchor so that, after
+  // framework microtasks flush, we can re-locate the exact node we acted
+  // on (even if the framework has reordered, replaced, or cloned it).
+  const anchorToken = nextAnchorToken();
+  anchorEl(resolvedEl, anchorToken);
+
   let applyRes = adapter.apply({ field, submit, el: resolvedEl }, req);
+  // I4: Also anchor the element the adapter actually interacted with
+  // (relevant for RadioAdapter which may target a different radio than the
+  // one the resolver returned for a group field).
+  if (applyRes.interactedEl && applyRes.interactedEl !== resolvedEl) {
+    anchorEl(applyRes.interactedEl, anchorToken);
+  }
   let observed = buildObserved(applyRes.interactedEl ?? resolvedEl);
   let verifyRes = expectedMatch(req.kind, req, observed);
   let retried = false;
@@ -262,10 +305,14 @@ function executeInteraction(req: InteractionRequest): InteractionResult {
       : resolveSubmit(submit!);
     if (secondResolve.ok && secondResolve.el !== resolvedEl) {
       resolvedEl = secondResolve.el;
+      anchorEl(resolvedEl, anchorToken);
     }
     const secondAdapter = pickAdapter(req.kind, field, submit, resolvedEl);
     if (secondAdapter) {
       applyRes = secondAdapter.apply({ field, submit, el: resolvedEl }, req);
+      if (applyRes.interactedEl && applyRes.interactedEl !== resolvedEl) {
+        anchorEl(applyRes.interactedEl, anchorToken);
+      }
       observed = buildObserved(applyRes.interactedEl ?? resolvedEl);
       verifyRes = expectedMatch(req.kind, req, observed);
       retried = true;
@@ -275,8 +322,149 @@ function executeInteraction(req: InteractionRequest): InteractionResult {
   if (!applyRes.ok) {
     return { ...baseResult, retried, reason: applyRes.reason ?? 'adapter failed' };
   }
-  if (!verifyRes.ok) {
-    return { ...baseResult, retried, observed, reason: verifyRes.reason ?? 'verification failed' };
+
+  // I4: Framework-state verification. Yield microtasks + a single macrotask
+  // so React/Vue scheduled re-renders can flush, then re-observe the live
+  // element and re-verify. If the framework replaced the interacted node,
+  // re-locate it via the anchor or via the resolver. If the value the
+  // framework ultimately landed on does not match the request, return a
+  // failed InteractionResult so the caller knows the value did not survive.
+  const settled = await settleAndVerify(
+    req,
+    field,
+    submit,
+    anchorToken,
+    applyRes.interactedEl ?? resolvedEl,
+    observed,
+    verifyRes,
+    retried,
+  );
+  return settled;
+}
+
+/**
+ * I4: Framework-state verification.
+ *
+ * Adapters (and the synchronous `expectedMatch` immediately after them)
+ * are already proven deterministic. This helper only runs when those have
+ * succeeded, and it gives framework-driven updates a brief window to flush
+ * before declaring success:
+ *
+ *   1. yield to microtasks (Promise.resolve chain) so any code that used
+ *      `queueMicrotask` or `Promise.resolve().then(...)` runs;
+ *   2. yield a single macrotask (`setTimeout(0)`) so scheduler-style
+ *      updates (React 18 concurrent / Vue nextTick) can flush;
+ *   3. re-locate the interacted element (anchor -> resolver fallback);
+ *   4. re-observe and re-verify. If the framework reverted the value,
+ *      return a failed result. If it preserved the requested value
+ *      (possibly after a re-render that re-applied the same value), succeed.
+ *
+ * If the post-settle verification matches, return success with the
+ * post-settle observation so callers see the *final* DOM state. If it
+ * does not match, return failure with the post-settle observation and a
+ * reason explaining what the framework actually did.
+ */
+async function settleAndVerify(
+  req: InteractionRequest,
+  field: FormField | null,
+  _submit: FormSubmitControl | null,
+  anchorToken: string,
+  interactedEl: HTMLElement,
+  preObserved: InteractionObservedState,
+  _preVerify: { ok: boolean; reason?: string },
+  retried: boolean,
+): Promise<InteractionResult> {
+  const baseResult: InteractionResult = {
+    success: false,
+    stableId: req.stableId,
+    kind: req.kind,
+    attemptedValue: attemptedFor(req),
+    retried,
+  };
+
+  // I4: click-button interactions do not carry a value to be preserved.
+  // Skipping the settle step here keeps button clicks fast and avoids
+  // post-click navigation teardown leaking through verification.
+  if (req.kind === 'click-button') {
+    return { ...baseResult, success: true, observed: preObserved };
   }
-  return { ...baseResult, success: true, retried, observed };
+
+  // Yield microtasks so queueMicrotask / Promise.resolve().then handlers
+  // (the most common place a controlled-input "revert" is scheduled from)
+  // get a chance to run.
+  await Promise.resolve();
+  await Promise.resolve();
+
+  // Yield a single macrotask so setTimeout(0) and scheduler-style flushes
+  // (React 18 useEffect after commit, Vue nextTick) can run. We do NOT
+  // introduce any longer delays here; the entire settle window is the
+  // minimum required to surface framework-driven state changes.
+  await new Promise<void>((resolve) => {
+    const g = globalThis as { setTimeout?: (cb: () => void, ms: number) => unknown };
+    if (typeof g.setTimeout === 'function') {
+      g.setTimeout(resolve, 0);
+    } else {
+      resolve();
+    }
+  });
+
+  const liveEl = locateInteractedEl(field, anchorToken, interactedEl);
+  if (!liveEl) {
+    // The interacted element is no longer in the DOM and we cannot
+    // re-locate a matching one. This is the framework-replaced-node case
+    // and we have no evidence the interaction took effect; report failure
+    // so the caller can choose to re-snapshot and retry.
+    return {
+      ...baseResult,
+      observed: preObserved,
+      reason: 'interacted element is no longer present after framework update',
+    };
+  }
+
+  const postObserved = buildObserved(liveEl);
+  const postVerify = expectedMatch(req.kind, req, postObserved);
+
+  if (postVerify.ok) {
+    return { ...baseResult, success: true, observed: postObserved };
+  }
+
+  // The framework (or some other listener) moved the value away from the
+  // requested state. Surface this as a clear failure rather than silently
+  // reporting the pre-settle observation.
+  const reason =
+    postVerify.reason ??
+    (req.kind === 'set-text' || req.kind === 'set-textarea' || req.kind === 'set-date' || req.kind === 'set-time'
+      ? 'framework reverted value before verification'
+      : 'framework changed control state before verification');
+  return { ...baseResult, observed: postObserved, reason };
+}
+
+/**
+ * I4: Locate the live interacted element after the settle window.
+ *
+ * Order of preference:
+ *   1. The exact node we acted on, if it still has our anchor and is
+ *      still connected to the document (the common case where the
+ *      framework only re-rendered the value, not the node).
+ *   2. Re-resolve the field by stableId. This handles the SPA-style
+ *      case where the framework replaced the original node with a new
+ *      one (e.g. React unmounted the old input and mounted a new one
+ *      keyed by the same id/name).
+ */
+function locateInteractedEl(
+  field: FormField | null,
+  anchorToken: string,
+  interactedEl: HTMLElement,
+): HTMLElement | null {
+  if (interactedEl.isConnected) {
+    const stillAnchored = interactedEl.getAttribute(AFA_ANCHOR_ATTR) === anchorToken;
+    if (stillAnchored) return interactedEl;
+  }
+  const docAnchored = findAnchoredEl(document, anchorToken);
+  if (docAnchored) return docAnchored;
+  if (field) {
+    const re = resolveField(field);
+    if (re.ok) return re.el;
+  }
+  return null;
 }
