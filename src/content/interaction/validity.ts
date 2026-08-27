@@ -60,6 +60,10 @@ function readChecked(el: HTMLElement): boolean | undefined {
   if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) {
     return el.checked;
   }
+  const role = el.getAttribute('role');
+  if (role === 'checkbox' || role === 'radio') {
+    return el.getAttribute('aria-checked') === 'true';
+  }
   return undefined;
 }
 
@@ -75,9 +79,18 @@ function readSelectedOption(el: HTMLElement): InteractionObservedState['selected
   };
 }
 
+function readSelectedValues(el: HTMLElement): string[] | undefined {
+  if (!(el instanceof HTMLSelectElement)) return undefined;
+  return Array.from(el.selectedOptions).map(opt => opt.value);
+}
+
 function readDisabled(el: HTMLElement): boolean {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || el instanceof HTMLButtonElement) {
     if (el.disabled) return true;
+  }
+  const role = el.getAttribute('role');
+  if (role === 'combobox' || role === 'radio' || role === 'checkbox') {
+     if (el.getAttribute('aria-disabled') === 'true') return true;
   }
   return el.getAttribute('aria-disabled') === 'true';
 }
@@ -100,6 +113,8 @@ export function observe(el: HTMLElement): InteractionObservedState {
   if (checked !== undefined) result.checked = checked;
   const selected = readSelectedOption(el);
   if (selected !== undefined) result.selectedOption = selected;
+  const selectedVals = readSelectedValues(el);
+  if (selectedVals !== undefined) result.selectedValues = selectedVals;
   const ro = readReadOnly(el);
   if (ro !== undefined) result.readOnly = ro;
   const validity = readValidity(el);

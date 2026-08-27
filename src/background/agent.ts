@@ -19,11 +19,13 @@ import type {
   InteractionRequest,
   RadioRequest,
   SelectOptionRequest,
+  SelectCustomComboboxRequest,
   SetTextRequest,
   CheckboxRequest,
   SetDateRequest,
   SetTimeRequest,
 } from '../shared/interaction';
+import { normalizeDate, normalizeTime, normalizeDateTimeLocal, normalizeNumber, normalizeTelephone, normalizeUrl } from './value-normalizer';
 import type { FormField, FormOption, FormSemanticHint } from '../shared/types';
 import type { JsonProfile, ProfileValue } from '../shared/profile';
 
@@ -310,7 +312,7 @@ export function planField(
   for (const k of fuzzyKeys) addCandidate(k, 'label');
 
   if (candidates.length === 0) {
-    if (field.controlType === 'input-checkbox' && field.required) {
+    if ((field.controlType === 'input-checkbox' || field.controlType === 'custom-checkbox') && field.required) {
       const req: CheckboxRequest = { stableId: field.stableId, kind: 'check' };
       return {
         ok: true,
@@ -410,7 +412,7 @@ export function valueToInteraction(
   const controlType = field.controlType;
 
   // --- checkboxes ---
-  if (controlType === 'input-checkbox') {
+  if (controlType === 'input-checkbox' || controlType === 'custom-checkbox') {
     let check: boolean | null = null;
     if (typeof value === 'boolean') {
       check = value;
@@ -442,7 +444,7 @@ export function valueToInteraction(
   }
 
   // --- radio (single-field surface in detector is one FormField with options[]) ---
-  if (controlType === 'input-radio') {
+  if (controlType === 'input-radio' || controlType === 'custom-radio') {
     if (typeof value !== 'string') {
       return baseSkip('radio_value_not_found', `profile "${key}" is not a string`);
     }
@@ -477,7 +479,27 @@ export function valueToInteraction(
       };
       return basePlan(req);
     }
-    if (typeof value === 'object' && !Array.isArray(value) && 'value' in value) {
+      if (Array.isArray(value)) {
+        const matches: string[] = [];
+        for (const v of value) {
+          if (typeof v === 'string') {
+            const m = findSelectOptionFuzzy(field.options, v);
+            if (m) matches.push(m.value);
+          }
+        }
+        if (matches.length === 0) {
+          return baseSkip('select_option_not_found', `no options matched array values`);
+        }
+        const req: SelectOptionRequest = {
+          stableId: field.stableId,
+          kind: 'select-option',
+          by: 'value',
+          value: matches[0],
+          values: matches,
+        };
+        return basePlan(req);
+      }
+      if (typeof value === 'object' && !Array.isArray(value) && 'value' in value) {
       const target = (value as { value: unknown }).value;
       if (typeof target !== 'string') {
         return baseSkip('select_option_not_found', 'profile value object is malformed');
@@ -498,22 +520,68 @@ export function valueToInteraction(
   }
 
   // --- dates / times ---
+  
+  if (controlType === 'custom-combobox') {
+    const s = asString(value);
+    if (s === null) return baseSkip('value_unsupported', 'requires a string');
+    const req: SelectCustomComboboxRequest = { stableId: field.stableId, kind: 'select-custom-combobox', value: s };
+    return basePlan(req);
+  }
   if (controlType === 'input-date') {
     const s = asString(value);
     if (s === null) return baseSkip('value_unsupported', 'date requires a string/number/boolean');
-    const req: SetDateRequest = { stableId: field.stableId, kind: 'set-date', value: s };
+    const norm = normalizeDate(s);
+    if (norm === null) return baseSkip('value_unsupported', `date value "${s}" could not be normalized`);
+    const req: SetDateRequest = { stableId: field.stableId, kind: 'set-date', value: norm };
     return basePlan(req);
   }
   if (controlType === 'input-time') {
     const s = asString(value);
     if (s === null) return baseSkip('value_unsupported', 'time requires a string/number/boolean');
-    const req: SetTimeRequest = { stableId: field.stableId, kind: 'set-time', value: s };
+    const norm = normalizeTime(s);
+    if (norm === null) return baseSkip('value_unsupported', `time value "${s}" could not be normalized`);
+    const req: SetTimeRequest = { stableId: field.stableId, kind: 'set-time', value: norm };
     return basePlan(req);
   }
-  if (controlType === 'input-month' || controlType === 'input-week' || controlType === 'input-datetime-local') {
+  if (controlType === 'input-datetime-local') {
+    const s = asString(value);
+    if (s === null) return baseSkip('value_unsupported', 'datetime requires a string/number/boolean');
+    const norm = normalizeDateTimeLocal(s);
+    if (norm === null) return baseSkip('value_unsupported', `datetime value "${s}" could not be normalized`);
+    const req: SetDateRequest = { stableId: field.stableId, kind: 'set-date', value: norm };
+    return basePlan(req);
+  }
+  if (controlType === 'input-month' || controlType === 'input-week') {
     const s = asString(value);
     if (s === null) return baseSkip('value_unsupported', 'datetime requires a string/number/boolean');
     const req: SetTextRequest = { stableId: field.stableId, kind: 'set-text', value: s };
+    return basePlan(req);
+  }
+
+  if (controlType === 'input-number' || controlType === 'input-range') {
+    const s = asString(value);
+    if (s === null) return baseSkip('value_unsupported', 'number requires a string/number/boolean');
+    const norm = normalizeNumber(s);
+    if (norm === null) return baseSkip('value_unsupported', `number value "${s}" could not be normalized`);
+    const req: SetTextRequest = { stableId: field.stableId, kind: 'set-text', value: norm };
+    return basePlan(req);
+  }
+
+  if (controlType === 'input-tel') {
+    const s = asString(value);
+    if (s === null) return baseSkip('value_unsupported', 'tel requires a string/number/boolean');
+    const norm = normalizeTelephone(s);
+    if (norm === null) return baseSkip('value_unsupported', `tel value "${s}" could not be normalized`);
+    const req: SetTextRequest = { stableId: field.stableId, kind: 'set-text', value: norm };
+    return basePlan(req);
+  }
+
+  if (controlType === 'input-url') {
+    const s = asString(value);
+    if (s === null) return baseSkip('value_unsupported', 'url requires a string/number/boolean');
+    const norm = normalizeUrl(s);
+    if (norm === null) return baseSkip('value_unsupported', `url value "${s}" could not be normalized`);
+    const req: SetTextRequest = { stableId: field.stableId, kind: 'set-text', value: norm };
     return basePlan(req);
   }
 
@@ -530,12 +598,8 @@ export function valueToInteraction(
   if (
     controlType === 'input-text' ||
     controlType === 'input-email' ||
-    controlType === 'input-tel' ||
-    controlType === 'input-url' ||
     controlType === 'input-search' ||
-    controlType === 'input-number' ||
-    controlType === 'input-color' ||
-    controlType === 'input-range'
+    controlType === 'input-color'
   ) {
     const s = asString(value);
     if (s === null) return baseSkip('value_unsupported', 'requires a string/number/boolean');

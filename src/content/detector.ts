@@ -4,6 +4,7 @@ import type {
   FormField,
   FormGroup,
   FormGroupKind,
+  FormRepeatingGroup,
   FormMetadata,
   FormOption,
   FormPage,
@@ -23,15 +24,19 @@ const SUPPORTED_INPUT_TYPES = new Set([
 const SENSITIVE_INPUT_TYPES = new Set(['password', 'file']);
 const NEVER_DISPLAY_VALUE_TYPES = new Set(['password', 'file']);
 
-type FormElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement;
+type FormElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement | HTMLElement;
 
 function isFormElement(node: Element): node is FormElement {
   if (!(node instanceof HTMLElement)) return false;
   const tag = node.tagName;
   if (tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return true;
-  if (tag !== 'INPUT') return false;
-  const type = ((node as HTMLInputElement).type ?? 'text').toLowerCase();
-  return SUPPORTED_INPUT_TYPES.has(type);
+  if (tag === 'INPUT') {
+    const type = ((node as HTMLInputElement).type ?? 'text').toLowerCase();
+    return SUPPORTED_INPUT_TYPES.has(type);
+  }
+  const role = node.getAttribute('role');
+  if (role === 'combobox' || role === 'radio' || role === 'checkbox') return true;
+  return false;
 }
 
 function isCandidateControl(node: Element): boolean {
@@ -277,7 +282,12 @@ function buildSubmitTarget(
 export const liveElements = new Map<string, WeakRef<HTMLElement>>();
 
 // Track radios that have already been grouped to prevent emitting them as standalone fields
-let seenRadios = new WeakSet<HTMLInputElement>();
+let seenRadios = new WeakSet<Element>();
+function isRadioGroupable(el: Element): boolean {
+  if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'radio' && (el as HTMLInputElement).name) return true;
+  if (el.getAttribute('role') === 'radio') return true;
+  return false;
+}
 
 function buildField(
   el: FormElement,
@@ -361,6 +371,29 @@ function buildField(
         disabled: el.disabled,
       }];
     }
+  } else if (el.getAttribute('role') === 'radio') {
+    const name = el.getAttribute('name');
+    const radiogroup = el.closest('[role="radiogroup"]');
+    const ariaLabelledby = el.getAttribute('aria-labelledby');
+    const root = owner ?? document;
+    const allRadios = Array.from(root.querySelectorAll('[role="radio"]')) as HTMLElement[];
+    const siblings = allRadios.filter(r => {
+       if (name && r.getAttribute('name') === name) return true;
+       if (radiogroup && r.closest('[role="radiogroup"]') === radiogroup) return true;
+       if (ariaLabelledby && r.getAttribute('aria-labelledby') === ariaLabelledby) return true;
+       if (!name && !radiogroup && !ariaLabelledby) return r === el;
+       return false;
+    });
+    for (const s of siblings) seenRadios.add(s);
+    options = siblings.map((s, idx) => {
+      const sId = s.id || `custom_radio_${idx}`;
+      return {
+        value: s.getAttribute('value') ?? `radio_${idx}`,
+        text: findLabelText(s as any, sId) || (s.textContent || '').trim(),
+        selected: s.getAttribute('aria-checked') === 'true',
+        disabled: s.getAttribute('aria-disabled') === 'true'
+      };
+    });
   }
 
   const stableId = `${groupId}.f${groupFieldIndex}`;
@@ -368,6 +401,46 @@ function buildField(
 
   const valuePresent = getValuePresent(el);
   const sensitive = containsSensitiveValue(el);
+  let repeatingGroup: FormRepeatingGroup | undefined;
+  if (name) {
+    const m = name.match(/^([a-zA-Z0-9]+)(?:\[(\d+)\]|_(\d+)_)(?:\.|\[)?([a-zA-Z0-9_]+)\]?$/);
+    if (m) {
+      repeatingGroup = {
+        baseName: m[1],
+        index: parseInt(m[2] || m[3], 10)
+      };
+    }
+  }
+
+  if (!repeatingGroup) {
+    let p = el.parentElement;
+    while (p) {
+      if (p.tagName === 'FIELDSET') {
+        const leg = p.querySelector(':scope > legend');
+        if (leg && leg.textContent) {
+          const text = leg.textContent.trim();
+          const baseText = text.replace(/#?\d+$/, '').trim();
+          
+          const doc = owner ?? document;
+          const allFieldsets = Array.from(doc.querySelectorAll('fieldset')).filter(fs => {
+            const l = fs.querySelector(':scope > legend');
+            return l && l.textContent && l.textContent.trim().replace(/#?\d+$/, '').trim() === baseText;
+          });
+          
+          if (allFieldsets.length > 1 || text !== baseText) {
+            const baseName = baseText.toLowerCase().replace(/[^a-z0-9]+(.)/g, (_m, chr) => chr.toUpperCase());
+            repeatingGroup = {
+              baseName,
+              index: allFieldsets.indexOf(p as HTMLFieldSetElement) > -1 ? allFieldsets.indexOf(p as HTMLFieldSetElement) : 0
+            };
+          }
+        }
+        break;
+      }
+      p = p.parentElement;
+    }
+  }
+
   const target = buildFieldTarget(el, owner, label);
 
   let controlType: FormField['controlType'] = 'input-text';
@@ -381,6 +454,11 @@ function buildField(
     controlType = 'select';
   } else if (tag === 'button') {
     controlType = 'button';
+  } else {
+    const role = el.getAttribute('role');
+    if (role === 'combobox') controlType = 'custom-combobox';
+    if (role === 'radio') controlType = 'custom-radio';
+    if (role === 'checkbox') controlType = 'custom-checkbox';
   }
 
   return {
@@ -404,6 +482,7 @@ function buildField(
     valuePresent,
     containsSensitiveValue: sensitive,
     target,
+    repeatingGroup,
   };
 }
 
@@ -440,7 +519,7 @@ function groupIdFor(kind: FormGroupKind, raw: HTMLFormElement | string, index: n
 }
 
 function findOwnerForm(el: FormElement, forms: HTMLFormElement[]): HTMLFormElement | null {
-  const direct = el.form;
+  const direct = (el as any).form;
   if (direct) {
     if (forms.indexOf(direct) !== -1) return direct;
   }
@@ -484,7 +563,7 @@ function detectFromRealForms(forms: HTMLFormElement[]): { groups: FormGroup[]; a
     const seen = new WeakSet<Element>();
     seenInGroupPerForm.set(form, seen);
 
-    const descendants = Array.from(form.querySelectorAll('input, textarea, select, button'));
+    const descendants = Array.from(form.querySelectorAll('input, textarea, select, button, [role="combobox"], [role="radio"], [role="checkbox"]'));
     for (const d of descendants) {
       if (!isFormElement(d)) continue;
       if (d.tagName === 'INPUT' && (d as HTMLInputElement).type === 'hidden') {
@@ -500,9 +579,7 @@ function detectFromRealForms(forms: HTMLFormElement[]): { groups: FormGroup[]; a
         continue;
       }
       if (!isCandidateControl(d)) continue;
-      if (d.tagName === 'INPUT' && (d as HTMLInputElement).type === 'radio' && (d as HTMLInputElement).name) {
-        if (seenRadios.has(d as HTMLInputElement)) continue;
-      }
+      if (isRadioGroupable(d)) { if (seenRadios.has(d)) continue; }
       if (seen.has(d)) continue;
       seen.add(d);
       fields.push(buildField(d, groupId, fields.length, form));
@@ -535,15 +612,13 @@ function collectExternalControls(
   groupIndexByForm: Map<HTMLFormElement, number>,
   groups: FormGroup[],
 ): void {
-  const candidates = Array.from(document.querySelectorAll('input, textarea, select, button'));
+  const candidates = Array.from(document.querySelectorAll('input, textarea, select, button, [role="combobox"], [role="radio"], [role="checkbox"]'));
   for (const el of candidates) {
     if (!isFormElement(el)) continue;
     if (assigned.has(el)) continue;
     if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'hidden') continue;
     if (!isCandidateControl(el)) continue;
-    if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'radio' && (el as HTMLInputElement).name) {
-      if (seenRadios.has(el as HTMLInputElement)) continue;
-    }
+    if (isRadioGroupable(el)) { if (seenRadios.has(el)) continue; }
     const owner = findOwnerForm(el, forms);
     if (!owner) continue;
     const gIdx = groupIndexByForm.get(owner);
@@ -563,15 +638,13 @@ function collectExternalControls(
 
 function collectLooseControls(assigned: WeakSet<Element>): FormElement[] {
   const loose: FormElement[] = [];
-  const all = Array.from(document.querySelectorAll('input, textarea, select, button'));
+  const all = Array.from(document.querySelectorAll('input, textarea, select, button, [role="combobox"], [role="radio"], [role="checkbox"]'));
   for (const el of all) {
     if (!isFormElement(el)) continue;
     if (assigned.has(el)) continue;
     if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'hidden') continue;
     if (!isCandidateControl(el)) continue;
-    if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'radio' && (el as HTMLInputElement).name) {
-      if (seenRadios.has(el as HTMLInputElement)) continue;
-    }
+    if (isRadioGroupable(el)) { if (seenRadios.has(el)) continue; }
     loose.push(el);
   }
   return loose;
@@ -616,7 +689,7 @@ function buildLogicalGroup(loose: FormElement[], index: number): FormGroup {
 
 export function detectPage(): FormPage {
   liveElements.clear();
-  seenRadios = new WeakSet<HTMLInputElement>();
+  seenRadios = new WeakSet<Element>();
   const forms = Array.from(document.querySelectorAll('form'));
   const { groups, assigned, groupIndexByForm } = detectFromRealForms(forms);
 

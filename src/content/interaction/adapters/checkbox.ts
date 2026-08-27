@@ -18,36 +18,29 @@ export class CheckboxAdapter implements Adapter {
     el: HTMLElement,
   ): boolean {
     if (!field) return false;
-    return el instanceof HTMLInputElement && el.type === 'checkbox';
+    return (el instanceof HTMLInputElement && el.type === 'checkbox') || el.getAttribute('role') === 'checkbox';
   }
 
   apply(ctx: AdapterContext, _req: InteractionRequest): { ok: boolean; reason?: string } {
     const { el } = ctx;
-    if (!(el instanceof HTMLInputElement) || el.type !== 'checkbox') {
+    if (!((el instanceof HTMLInputElement && el.type === 'checkbox') || el.getAttribute('role') === 'checkbox')) {
       return { ok: false, reason: 'element is not a checkbox' };
     }
     if (isDisabledForInteraction(el)) {
       return { ok: false, reason: 'control is disabled' };
     }
-    // M4 fix: Use explicit desired state instead of deriving from r.kind
     const want = true;
-    if (el.checked === want) {
+    const isChecked = el instanceof HTMLInputElement ? el.checked : el.getAttribute('aria-checked') === 'true';
+    if (isChecked === want) {
       return { ok: true };
     }
-    try {
-      el.focus();
-    } catch {
-    }
+    try { el.focus(); } catch {}
     try {
       simulateClick(el);
     } catch (err) {
       return { ok: false, reason: 'click dispatch failed: ' + (err instanceof Error ? err.message : String(err)) };
     }
-    // M1 fix: dispatch blur after interaction
-    try {
-      el.blur();
-    } catch {
-    }
+    try { el.blur(); } catch {}
     return { ok: true };
   }
 }
@@ -61,36 +54,29 @@ export class UncheckAdapter implements Adapter {
     el: HTMLElement,
   ): boolean {
     if (!field) return false;
-    return el instanceof HTMLInputElement && el.type === 'checkbox';
+    return (el instanceof HTMLInputElement && el.type === 'checkbox') || el.getAttribute('role') === 'checkbox';
   }
 
   apply(ctx: AdapterContext, _req: InteractionRequest): { ok: boolean; reason?: string } {
     const { el } = ctx;
-    if (!(el instanceof HTMLInputElement) || el.type !== 'checkbox') {
+    if (!((el instanceof HTMLInputElement && el.type === 'checkbox') || el.getAttribute('role') === 'checkbox')) {
       return { ok: false, reason: 'element is not a checkbox' };
     }
     if (isDisabledForInteraction(el)) {
       return { ok: false, reason: 'control is disabled' };
     }
-    // M4 fix: Use explicit desired state instead of deriving from r.kind
     const want = false;
-    if (el.checked === want) {
+    const isChecked = el instanceof HTMLInputElement ? el.checked : el.getAttribute('aria-checked') === 'true';
+    if (isChecked === want) {
       return { ok: true };
     }
-    try {
-      el.focus();
-    } catch {
-    }
+    try { el.focus(); } catch {}
     try {
       simulateClick(el);
     } catch (err) {
       return { ok: false, reason: 'click dispatch failed: ' + (err instanceof Error ? err.message : String(err)) };
     }
-    // M1 fix: dispatch blur after interaction
-    try {
-      el.blur();
-    } catch {
-    }
+    try { el.blur(); } catch {}
     return { ok: true };
   }
 }

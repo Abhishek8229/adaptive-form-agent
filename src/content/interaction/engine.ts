@@ -14,6 +14,9 @@ import { SelectAdapter } from './adapters/select';
 import { DateTimeAdapter, TimeAdapter } from './adapters/datetime';
 import { TextLikeAdapter } from './adapters/text';
 import { TextareaAdapter } from './adapters/textarea';
+import { RangeAdapter } from './adapters/range';
+import { CustomComboboxAdapter } from './adapters/custom-combobox';
+import { normalizeUrl } from '../../background/value-normalizer';
 import { ButtonAdapter } from './adapters/button';
 import type { Adapter } from './adapter';
 
@@ -44,6 +47,8 @@ function findAnchoredEl(root: ParentNode, token: string): HTMLElement | null {
 }
 
 const ADAPTERS: Adapter[] = [
+  new CustomComboboxAdapter(),
+  new RangeAdapter(),
   new TextLikeAdapter(),
   new TextareaAdapter(),
   new CheckboxAdapter(),
@@ -103,6 +108,7 @@ function isIdempotent(kind: InteractionKind): boolean {
     case 'uncheck':
     case 'select-radio':
     case 'select-option':
+    case 'select-custom-combobox':
     case 'click-button':
       return true;
     default:
@@ -119,6 +125,19 @@ function stripFormatting(s: string): string {
 }
 
 function expectedMatch(kind: InteractionKind, req: InteractionRequest, observed: InteractionObservedState): { ok: boolean; reason?: string } {
+  if (observed.validity && !observed.validity.valid) {
+    const v = observed.validity;
+    if (v.valueMissing) return { ok: false, reason: 'validity: valueMissing' };
+    if (v.typeMismatch) return { ok: false, reason: 'validity: typeMismatch' };
+    if (v.patternMismatch) return { ok: false, reason: 'validity: patternMismatch' };
+    if (v.rangeUnderflow) return { ok: false, reason: 'validity: rangeUnderflow' };
+    if (v.rangeOverflow) return { ok: false, reason: 'validity: rangeOverflow' };
+    if (v.stepMismatch) return { ok: false, reason: 'validity: stepMismatch' };
+    if (v.badInput) return { ok: false, reason: 'validity: badInput' };
+    if (v.customError) return { ok: false, reason: 'validity: customError' };
+    return { ok: false, reason: 'validity: invalid' };
+  }
+
   switch (kind) {
     case 'set-text':
     case 'set-textarea': {
@@ -145,14 +164,24 @@ function expectedMatch(kind: InteractionKind, req: InteractionRequest, observed:
       return { ok: true };
     }
     case 'select-option': {
-      const r = req as Extract<InteractionRequest, { by: 'value' | 'text'; value: string }>;
+      const r = req as Extract<InteractionRequest, { kind: 'select-option' }>;
+      if (r.values && r.values.length > 0) {
+        if (!observed.selectedValues) return { ok: false, reason: 'no selected values observed' };
+        for (const v of r.values) {
+          if (!observed.selectedValues.includes(v)) {
+            return { ok: false, reason: `selected values [${observed.selectedValues.join(',')}] missing requested "${v}"` };
+          }
+        }
+        return { ok: true };
+      }
+
       if (!observed.selectedOption) return { ok: false, reason: 'no selected option observed' };
       if (r.by === 'value') {
         if (observed.selectedOption.value !== r.value) {
           return { ok: false, reason: `selected option value "${observed.selectedOption.value}" != requested "${r.value}"` };
         }
       } else {
-        if (observed.selectedOption.text.toLowerCase() !== r.value.trim().toLowerCase()) {
+        if (observed.selectedOption.text.toLowerCase() !== (r.value ?? '').trim().toLowerCase()) {
           return { ok: false, reason: `selected option text "${observed.selectedOption.text}" != requested "${r.value}"` };
         }
       }
@@ -164,6 +193,10 @@ function expectedMatch(kind: InteractionKind, req: InteractionRequest, observed:
       if (observed.value !== r.value) {
         return { ok: false, reason: `value mismatch: expected "${r.value}" got "${observed.value ?? ''}"` };
       }
+      return { ok: true };
+    }
+    case 'select-custom-combobox': {
+      // The adapter clicked the option. There's no standard observable state without framework coupling.
       return { ok: true };
     }
     case 'click-button': {
@@ -287,7 +320,7 @@ async function executeInteraction(req: InteractionRequest): Promise<InteractionR
   const anchorToken = nextAnchorToken();
   anchorEl(resolvedEl, anchorToken);
 
-  let applyRes = adapter.apply({ field, submit, el: resolvedEl }, req);
+  let applyRes = await adapter.apply({ field, submit, el: resolvedEl }, req);
   // I4: Also anchor the element the adapter actually interacted with
   // (relevant for RadioAdapter which may target a different radio than the
   // one the resolver returned for a group field).
@@ -297,9 +330,38 @@ async function executeInteraction(req: InteractionRequest): Promise<InteractionR
   let observed = buildObserved(applyRes.interactedEl ?? resolvedEl);
   let verifyRes = expectedMatch(req.kind, req, observed);
   let retried = false;
+  let recoveredReq = req;
+
+  // SAFE RECOVERY ATTEMPT
+  if (applyRes.ok && !verifyRes.ok && verifyRes.reason?.startsWith('validity:') && resolvedEl instanceof HTMLInputElement) {
+    const vReason = verifyRes.reason.split(':')[1].trim();
+    const originalValue = (req as any).value;
+    if (typeof originalValue === 'string') {
+      if (vReason === 'stepMismatch') {
+        const num = Number(originalValue);
+        if (!isNaN(num)) {
+          const norm = num.toString();
+          if (norm !== originalValue) {
+            recoveredReq = { ...req, value: norm } as InteractionRequest;
+          }
+        }
+      } else if (vReason === 'typeMismatch') {
+        if (resolvedEl.type === 'url') {
+          const normUrl = normalizeUrl(originalValue);
+          if (normUrl && normUrl !== originalValue) {
+            recoveredReq = { ...req, value: normUrl } as InteractionRequest;
+          }
+        }
+      } else if (vReason === 'valueMissing') {
+        if (originalValue.trim().length > 0) {
+          recoveredReq = req;
+        }
+      }
+    }
+  }
 
   // I6 fix: All kinds are now retryable
-  if ((!applyRes.ok || !verifyRes.ok) && isIdempotent(req.kind)) {
+  if ((!applyRes.ok || !verifyRes.ok) && isIdempotent(recoveredReq.kind)) {
     const secondResolve = field
       ? resolveField(field)
       : resolveSubmit(submit!);
@@ -307,14 +369,14 @@ async function executeInteraction(req: InteractionRequest): Promise<InteractionR
       resolvedEl = secondResolve.el;
       anchorEl(resolvedEl, anchorToken);
     }
-    const secondAdapter = pickAdapter(req.kind, field, submit, resolvedEl);
+    const secondAdapter = pickAdapter(recoveredReq.kind, field, submit, resolvedEl);
     if (secondAdapter) {
-      applyRes = secondAdapter.apply({ field, submit, el: resolvedEl }, req);
+      applyRes = await secondAdapter.apply({ field, submit, el: resolvedEl }, recoveredReq);
       if (applyRes.interactedEl && applyRes.interactedEl !== resolvedEl) {
         anchorEl(applyRes.interactedEl, anchorToken);
       }
       observed = buildObserved(applyRes.interactedEl ?? resolvedEl);
-      verifyRes = expectedMatch(req.kind, req, observed);
+      verifyRes = expectedMatch(recoveredReq.kind, recoveredReq, observed);
       retried = true;
     }
   }
@@ -330,7 +392,7 @@ async function executeInteraction(req: InteractionRequest): Promise<InteractionR
   // framework ultimately landed on does not match the request, return a
   // failed InteractionResult so the caller knows the value did not survive.
   const settled = await settleAndVerify(
-    req,
+    recoveredReq,
     field,
     submit,
     anchorToken,

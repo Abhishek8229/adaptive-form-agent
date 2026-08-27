@@ -222,6 +222,45 @@ export class Bot {
     return this.snapshot();
   }
 
+    private async tryAddAnother(page: FormPage, fields: FormField[]): Promise<boolean> {
+    const maxSeenIndex = new Map<string, number>();
+    for (const f of fields) {
+      if (f.repeatingGroup) {
+         const { baseName, index } = f.repeatingGroup;
+         const current = maxSeenIndex.get(baseName) ?? -1;
+         if (index > current) maxSeenIndex.set(baseName, index);
+      }
+    }
+
+    let targetBaseName: string | null = null;
+    for (const [key, val] of Object.entries(this.profile.profile)) {
+      if (Array.isArray(val)) {
+         const maxSeen = maxSeenIndex.get(key) ?? -1;
+         if (val.length > maxSeen + 1) {
+            targetBaseName = key;
+            break;
+         }
+      }
+    }
+
+    if (!targetBaseName) return false;
+    
+    const readable = targetBaseName.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+    const regex = new RegExp(`add.*(?:${targetBaseName}|${readable})`, 'i');
+    
+    for (const group of page.forms) {
+       for (const btn of group.submitControls) {
+          if (btn.text && regex.test(btn.text)) {
+             this.currentField = { stableId: btn.stableId, label: btn.text, reason: 'adding another instance' };
+             this.emit();
+             const res = await this.bridge.interact(this.tabId, { kind: 'click-button', stableId: btn.stableId });
+             return res.ok && res.result?.success === true;
+          }
+       }
+    }
+    return false;
+  }
+
   private async loop(): Promise<void> {
     const attemptedStableIds = new Set<string>();
     const skippedStableIds = new Set<string>();
@@ -267,11 +306,19 @@ export class Bot {
           continue;
         }
 
-        skippedStableIds.delete(field.stableId);
-        attemptedStableIds.add(field.stableId);
-
         // Ask the planner.
-        const plan: PlanResult = planField(field, this.profile.profile);
+        let effectiveProfile: any = this.profile.profile;
+        if (field.repeatingGroup) {
+          const arr = this.profile.profile[field.repeatingGroup.baseName];
+          if (Array.isArray(arr)) effectiveProfile = arr[field.repeatingGroup.index];
+        }
+        if (!effectiveProfile) {
+          skippedStableIds.add(field.stableId);
+          this.counters.skipped = skippedStableIds.size;
+          continue;
+        }
+
+        const plan: PlanResult = planField(field, effectiveProfile);
         if (!plan.ok) {
           skippedStableIds.add(field.stableId);
           this.currentField = {
@@ -283,6 +330,8 @@ export class Bot {
           this.emit();
           continue;
         }
+
+        attemptedStableIds.add(field.stableId);
 
         this.currentField = {
           stableId: field.stableId,
@@ -306,14 +355,18 @@ export class Bot {
         } else {
           // Engine rejected (resolver/safety/validity). Treat as skip with
           // the engine's reason, but count as failure so the user sees it.
-          this.counters.failed += 1;
-          this.lastError = ir.result.reason ?? 'interact failed';
-          this.emit();
+                      this.counters.failed += 1;
+            this.lastError = ir.result.reason ?? 'interact failed';
+            this.emit();
+          }
+        }
+
+        if (!progress && !this.stopRequested) {
+          progress = await this.tryAddAnother(page, fields);
         }
       }
-    }
 
-    this.currentField = null;
+      this.currentField = null;
     this.status = this.stopRequested ? 'stopped' : 'done';
     this.finishedAt = this.clock().toISOString();
     this.emit();

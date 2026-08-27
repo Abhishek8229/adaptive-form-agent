@@ -262,7 +262,7 @@ test('interaction: validation failure on pattern mismatch', async () => {
     assert.ok(f);
     const req: InteractionRequest = { kind: 'set-text', stableId: f.stableId, value: 'abc' };
     const result = await runInteraction(req);
-    assert.equal(result.success, true, JSON.stringify(result));
+    assert.equal(result.success, false);
     const el = s.dom.window.document.getElementById('zipcode-pattern') as HTMLInputElement;
     assert.equal(el.value, 'abc');
     assert.equal(el.validity.patternMismatch, true, 'patternMismatch should be true');
@@ -450,7 +450,7 @@ test('interaction: file input is blocked by safety', async () => {
 // --- Phase 3 Architectural Review Tests ---
 
 test('interaction: 1. Insert new input before target (position shift)', async () => {
-  const html = `<!doctype html><html><body><form id="f"><input id="target" name="email" type="email" value="old" /></form></body></html>`;
+  const html = `<!doctype html><html><body><form id="f"><input id="target" name="email" type="text" value="old" /></form></body></html>`;
   const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
   installVisibilityShim(dom);
   initDomGlobals(dom);
@@ -463,7 +463,7 @@ test('interaction: 1. Insert new input before target (position shift)', async ()
   const form = dom.window.document.getElementById('f')!;
   const newEl = dom.window.document.createElement('input');
   newEl.name = 'email';
-  newEl.type = 'email';
+  newEl.type = 'text';
   form.insertBefore(newEl, form.firstChild);
   
   const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new' };
@@ -478,7 +478,7 @@ test('interaction: 1. Insert new input before target (position shift)', async ()
 });
 
 test('interaction: 2. Remove target element, add new element with same ID (SPA replacement)', async () => {
-  const html = `<!doctype html><html><body><form id="f"><input id="target" name="email" type="email" value="old" /></form></body></html>`;
+  const html = `<!doctype html><html><body><form id="f"><input id="target" name="email" type="text" value="old" /></form></body></html>`;
   const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
   installVisibilityShim(dom);
   initDomGlobals(dom);
@@ -489,7 +489,7 @@ test('interaction: 2. Remove target element, add new element with same ID (SPA r
   
   // Mutate DOM
   const form = dom.window.document.getElementById('f')!;
-  form.innerHTML = '<input id="target" name="email" type="email" value="replaced" />';
+  form.innerHTML = '<input id="target" name="email" type="text" value="replaced" />';
   
   const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new' };
   const res = await runInteraction(req);
@@ -500,7 +500,7 @@ test('interaction: 2. Remove target element, add new element with same ID (SPA r
 });
 
 test('interaction: 3. Change a field ID attribute', async () => {
-  const html = `<!doctype html><html><body><form id="f"><input id="target" name="email" type="email" value="old" /></form></body></html>`;
+  const html = `<!doctype html><html><body><form id="f"><input id="target" name="email" type="text" value="old" /></form></body></html>`;
   const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
   installVisibilityShim(dom);
   initDomGlobals(dom);
@@ -522,8 +522,8 @@ test('interaction: 3. Change a field ID attribute', async () => {
 
 test('interaction: 4. Two fields with name=email in different forms', async () => {
   const html = `<!doctype html><html><body>
-    <form id="f1"><input name="email" type="email" value="one" /></form>
-    <form id="f2"><input name="email" type="email" value="two" /></form>
+    <form id="f1"><input name="email" type="text" value="one" /></form>
+    <form id="f2"><input name="email" type="text" value="two" /></form>
   </body></html>`;
   const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
   installVisibilityShim(dom);
@@ -546,8 +546,8 @@ test('interaction: 4. Two fields with name=email in different forms', async () =
 test('interaction: 5. Two fields with name=email in same form', async () => {
   const html = `<!doctype html><html><body>
     <form id="f1">
-      <input name="email" type="email" value="one" />
-      <input name="email" type="email" value="two" />
+      <input name="email" type="text" value="one" />
+      <input name="email" type="text" value="two" />
     </form>
   </body></html>`;
   const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
@@ -623,7 +623,7 @@ test('interaction: 7. Cross-form radio groups', async () => {
 
 test('interaction: 8. Move a field from one form to another', async () => {
   const html = `<!doctype html><html><body>
-    <form id="f1"><input id="target" name="email" type="email" /></form>
+    <form id="f1"><input id="target" name="email" type="text" /></form>
     <form id="f2"></form>
   </body></html>`;
   const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
@@ -645,7 +645,7 @@ test('interaction: 8. Move a field from one form to another', async () => {
 });
 
 test('interaction: 9. Replace entire form innerHTML', async () => {
-  const html = `<!doctype html><html><body><form id="f"><input id="target" name="email" type="email" /></form></body></html>`;
+  const html = `<!doctype html><html><body><form id="f"><input id="target" name="email" type="text" /></form></body></html>`;
   const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
   installVisibilityShim(dom);
   initDomGlobals(dom);
@@ -653,7 +653,7 @@ test('interaction: 9. Replace entire form innerHTML', async () => {
   const page = detectPage();
   setPageSnapshot(page);
   
-  dom.window.document.getElementById('f')!.innerHTML = '<input id="target" name="email" type="email" />';
+  dom.window.document.getElementById('f')!.innerHTML = '<input id="target" name="email" type="text" />';
   
   const field = page.forms[0].fields[0];
   const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new' };
@@ -842,7 +842,7 @@ test('I4: microtask framework revert is detected', async () => {
     });
   });
 
-  const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new@example.com' };
+  const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new' };
   const res = await runInteraction(req);
   assert.equal(res.success, false, JSON.stringify(res));
   assert.match(res.reason ?? '', /value mismatch|framework/);
@@ -898,7 +898,7 @@ test('I4: microtask framework replacement of the input is reported as failure', 
     });
   });
 
-  const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new@example.com' };
+  const req: InteractionRequest = { kind: 'set-text', stableId: field.stableId, value: 'new' };
   const res = await runInteraction(req);
   assert.equal(res.success, false, JSON.stringify(res));
   assert.match(res.reason ?? '', /no longer present/);
@@ -940,4 +940,275 @@ test('I4: framework replacement that re-mounts a matching input is verified by r
   const final = dom.window.document.getElementById('email') as HTMLInputElement;
   assert.equal(final.value, '');
   dom.window.close();
+});
+
+test('validity: valueMissing retry', async () => {
+  const html = '<!doctype html><html><body><form id="x"><input id="req" name="req" type="text" required /></form></body></html>';
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  
+  const res = await runInteraction({ kind: 'set-text', stableId: page.forms[0].fields[0].stableId, value: '' });
+  assert.equal(res.success, false);
+  assert.equal(res.reason?.includes('validity: valueMissing'), true);
+});
+
+test('validity: rangeUnderflow triggers failure without clamping', async () => {
+  const html = '<!doctype html><html><body><form id="x"><input id="num" name="num" type="number" min="5" /></form></body></html>';
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  
+  const res = await runInteraction({ kind: 'set-text', stableId: page.forms[0].fields[0].stableId, value: '3' });
+  assert.equal(res.success, false);
+  assert.equal(res.reason?.includes('validity: rangeUnderflow'), true);
+  
+  const el = dom.window.document.getElementById('num') as HTMLInputElement;
+  assert.equal(el.value, '3', 'Should not silently clamp to 5');
+});
+
+test('validity: stepMismatch safe recovery', async () => {
+  const html = '<!doctype html><html><body><form id="x"><input id="num" name="num" type="number" step="1" /></form></body></html>';
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  
+  const el = dom.window.document.getElementById('num') as HTMLInputElement;
+  
+  let internalVal = "";
+  Object.defineProperty(el, 'validity', {
+    get: () => {
+      // The adapter will use HTMLInputElement.prototype.set to set the value.
+      // We can just read el.getAttribute or internal JSDOM value, but a simpler
+      // way is to intercept the value getter temporarily.
+      // But actually, we don't need to intercept the getter. We can just intercept validity!
+      const v = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').get.call(el);
+      return {
+        valid: v !== '5.0',
+        stepMismatch: v === '5.0',
+        valueMissing: false, typeMismatch: false, patternMismatch: false,
+        rangeUnderflow: false, rangeOverflow: false, badInput: false, customError: false
+      };
+    }
+  });
+  
+  const res = await runInteraction({ kind: 'set-text', stableId: page.forms[0].fields[0].stableId, value: '5.0' });
+  assert.equal(res.success, true);
+  assert.equal(el.value, '5', 'Should recover safely to 5');
+});
+
+test('validity: typeMismatch URL safe recovery', async () => {
+  const html = '<!doctype html><html><body><form id="x"><input id="url" name="url" type="url" /></form></body></html>';
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  
+  const res = await runInteraction({ kind: 'set-text', stableId: page.forms[0].fields[0].stableId, value: 'example.com' });
+  assert.equal(res.success, true);
+  
+  const el = dom.window.document.getElementById('url') as HTMLInputElement;
+  assert.equal(el.value, 'https://example.com');
+});
+
+test('validity: patternMismatch triggers failure', async () => {
+  const html = '<!doctype html><html><body><form id="x"><input id="pat" name="pat" type="text" pattern="[a-z]+" /></form></body></html>';
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage();
+  setPageSnapshot(page);
+  
+  const res = await runInteraction({ kind: 'set-text', stableId: page.forms[0].fields[0].stableId, value: '123' });
+  assert.equal(res.success, false);
+  assert.equal(res.reason?.includes('validity: patternMismatch'), true);
+});
+
+test('interaction: range input numeric clamping and mismatch', async () => {
+  const html = '<!doctype html><html><body><form><input id="rng" type="range" min="10" max="20" step="2" /></form></body></html>';
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage(); setPageSnapshot(page); console.log(JSON.stringify(page.forms[0].fields, null, 2));
+  const stableId = page.forms[0].fields[0].stableId;
+
+  // valid
+  let res = await runInteraction({ kind: 'set-text', stableId, value: '14' });
+  assert.equal(res.success, true);
+  
+  // underflow
+  res = await runInteraction({ kind: 'set-text', stableId, value: '5' });
+  assert.equal(res.success, false);
+  assert.equal(res.reason, 'validity: rangeUnderflow');
+
+  // overflow
+  res = await runInteraction({ kind: 'set-text', stableId, value: '25' });
+  assert.equal(res.success, false);
+  assert.equal(res.reason, 'validity: rangeOverflow');
+
+  // stepMismatch
+  res = await runInteraction({ kind: 'set-text', stableId, value: '15' });
+  assert.equal(res.success, false);
+  assert.equal(res.reason, 'validity: stepMismatch');
+});
+
+test('interaction: datetime-local input', async () => {
+  const html = '<!doctype html><html><body><form><input id="dt" type="datetime-local" min="2026-08-27T10:00" max="2026-08-27T20:00" /></form></body></html>';
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage(); setPageSnapshot(page); console.log(JSON.stringify(page.forms[0].fields, null, 2));
+  const stableId = page.forms[0].fields[0].stableId;
+
+  // valid
+  let res = await runInteraction({ kind: 'set-date', stableId, value: '2026-08-27T14:30' });
+  assert.equal(res.success, true);
+  
+  // underflow
+  res = await runInteraction({ kind: 'set-date', stableId, value: '2026-08-27T08:30' });
+  assert.equal(res.success, false);
+  assert.equal(res.reason, 'value 2026-08-27T08:30 is below min 2026-08-27T10:00');
+});
+
+test('interaction: select multiple', async () => {
+  const html = `<!doctype html><html><body><form>
+    <select id="sel" multiple>
+      <option value="v1">Val 1</option>
+      <option value="v2">Val 2</option>
+      <option value="v3">Val 3</option>
+    </select>
+  </form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  const page = detectPage(); setPageSnapshot(page); console.log(JSON.stringify(page.forms[0].fields, null, 2));
+  const stableId = page.forms[0].fields[0].stableId;
+
+  // valid multiple
+  let res = await runInteraction({ kind: 'select-option', stableId, by: 'value', value: 'v1', values: ['v1', 'v3'] });
+  assert.equal(res.success, true);
+  const sel = dom.window.document.getElementById('sel');
+  assert.equal(sel.selectedOptions.length, 2);
+  assert.equal(sel.selectedOptions[0].value, 'v1');
+  assert.equal(sel.selectedOptions[1].value, 'v3');
+});
+
+test('aria: combobox detection and interaction', async () => {
+  const html = `<!doctype html><html><body><form>
+    <div id="cb" role="combobox" aria-expanded="false" name="mycombo">Combo</div>
+  </form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  
+  // mock combobox expanding
+  const cb = dom.window.document.getElementById('cb');
+  cb.addEventListener('click', () => {
+    cb.setAttribute('aria-expanded', 'true');
+    const listbox = dom.window.document.createElement('div');
+    listbox.setAttribute('role', 'listbox');
+    const opt = dom.window.document.createElement('div');
+    opt.setAttribute('role', 'option');
+    opt.textContent = 'Custom Option 1';
+    listbox.appendChild(opt);
+    dom.window.document.body.appendChild(listbox);
+  });
+
+  const page = detectPage(); setPageSnapshot(page); console.log(JSON.stringify(page.forms[0].fields, null, 2));
+  
+  assert.equal(page.forms[0].fields.length, 1);
+  assert.equal(page.forms[0].fields[0].controlType, 'custom-combobox');
+  
+  const stableId = page.forms[0].fields[0].stableId;
+  const res = await runInteraction({ kind: 'select-custom-combobox', stableId, value: 'Custom Option 1' });
+    if (!res.success) {
+      console.log('COMBOBOX FAIL REASON:', res.reason);
+    }
+    assert.equal(res.success, true);
+});
+
+test('aria: radio grouping', async () => {
+  const html = `<!doctype html><html><body><form>
+    <div role="radiogroup" aria-labelledby="rg-label">
+      <div id="rg-label">My Radio Group</div>
+      <div role="radio" aria-checked="false" value="r1">Radio 1</div>
+      <div role="radio" aria-checked="false" value="r2">Radio 2</div>
+    </div>
+  </form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+
+  // mock radio selection
+  const radios = Array.from(dom.window.document.querySelectorAll('[role="radio"]'));
+  for (const r of radios) {
+    r.addEventListener('click', () => {
+      radios.forEach(rx => rx.setAttribute('aria-checked', 'false'));
+      r.setAttribute('aria-checked', 'true');
+    });
+  }
+
+  const page = detectPage(); setPageSnapshot(page); console.log(JSON.stringify(page.forms[0].fields, null, 2));
+  
+  assert.equal(page.forms[0].fields.length, 1);
+  const field = page.forms[0].fields[0];
+  assert.equal(field.controlType, 'custom-radio');
+  assert.equal(field.options.length, 2);
+  assert.equal(field.options[0].value, 'r1');
+  assert.equal(field.options[1].value, 'r2');
+  
+  const res = await runInteraction({ kind: 'select-radio', stableId: field.stableId, value: 'r2' });
+  assert.equal(res.success, true);
+  assert.equal(radios[1].getAttribute('aria-checked'), 'true');
+});
+
+test('aria: checkbox detection and toggle', async () => {
+  const html = `<!doctype html><html><body><form>
+    <div role="checkbox" aria-checked="false" id="mycb">My Checkbox</div>
+  </form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+
+  const cb = dom.window.document.getElementById('mycb');
+  cb.addEventListener('click', () => {
+    cb.setAttribute('aria-checked', cb.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+  });
+
+  const page = detectPage(); setPageSnapshot(page); console.log(JSON.stringify(page.forms[0].fields, null, 2));
+  
+  assert.equal(page.forms[0].fields.length, 1);
+  const field = page.forms[0].fields[0];
+  assert.equal(field.controlType, 'custom-checkbox');
+  
+  let res = await runInteraction({ kind: 'check', stableId: field.stableId });
+  assert.equal(res.success, true);
+  assert.equal(cb.getAttribute('aria-checked'), 'true');
+  
+  res = await runInteraction({ kind: 'uncheck', stableId: field.stableId });
+  assert.equal(res.success, true);
+  assert.equal(cb.getAttribute('aria-checked'), 'false');
+});
+
+test('aria: inaccessible custom control safely skips', async () => {
+  const html = `<!doctype html><html><body><form>
+    <div id="cb" role="combobox" aria-expanded="false" name="mycombo">Combo</div>
+  </form></body></html>`;
+  const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+  installVisibilityShim(dom);
+  initDomGlobals(dom);
+  
+  const page = detectPage(); setPageSnapshot(page); console.log(JSON.stringify(page.forms[0].fields, null, 2));
+  
+  const stableId = page.forms[0].fields[0].stableId;
+  const res = await runInteraction({ kind: 'select-custom-combobox', stableId, value: 'Missing Option' });
+  assert.equal(res.success, false);
+  assert.equal(res.reason, 'no combobox options appeared');
 });

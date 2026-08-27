@@ -24,7 +24,10 @@ export type FormControlType =
   | 'input-other'
   | 'textarea'
   | 'select'
-  | 'button';
+  | 'button'
+  | 'custom-combobox'
+  | 'custom-radio'
+  | 'custom-checkbox';
 
 export type FormSemanticHint =
   | 'email'
@@ -81,6 +84,11 @@ export interface FieldTarget {
   selector: string;
 }
 
+export interface FormRepeatingGroup {
+  baseName: string;
+  index: number;
+}
+
 export interface FormField {
   stableId: string;
   tag: string;
@@ -102,6 +110,7 @@ export interface FormField {
   valuePresent: boolean;
   containsSensitiveValue: boolean;
   target: FieldTarget;
+  repeatingGroup?: FormRepeatingGroup;
 }
 
 export interface SubmitTarget {

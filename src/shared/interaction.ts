@@ -7,7 +7,8 @@ export type InteractionKind =
   | 'select-option'
   | 'set-date'
   | 'set-time'
-  | 'click-button';
+  | 'click-button'
+  | 'select-custom-combobox';
 
 export interface InteractionBaseRequest {
   stableId: string;
@@ -32,6 +33,7 @@ export interface SelectOptionRequest extends InteractionBaseRequest {
   kind: 'select-option';
   by: 'value' | 'text';
   value: string;
+  values?: string[]; // Multiple matched values for <select multiple>
 }
 
 export interface SetDateRequest extends InteractionBaseRequest {
@@ -48,6 +50,11 @@ export interface ClickButtonRequest extends InteractionBaseRequest {
   kind: 'click-button';
 }
 
+export interface SelectCustomComboboxRequest extends InteractionBaseRequest {
+  kind: 'select-custom-combobox';
+  value: string;
+}
+
 export type InteractionRequest =
   | SetTextRequest
   | CheckboxRequest
@@ -55,12 +62,14 @@ export type InteractionRequest =
   | SelectOptionRequest
   | SetDateRequest
   | SetTimeRequest
-  | ClickButtonRequest;
+  | ClickButtonRequest
+  | SelectCustomComboboxRequest;
 
 export interface InteractionObservedState {
   value?: string;
   checked?: boolean;
   selectedOption?: { value: string; text: string; index: number };
+  selectedValues?: string[];
   disabled?: boolean;
   readOnly?: boolean;
   visible?: boolean;

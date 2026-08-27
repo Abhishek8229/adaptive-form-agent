@@ -30,26 +30,56 @@ export class RadioAdapter implements Adapter {
     el: HTMLElement,
   ): boolean {
     if (!field) return false;
-    return el instanceof HTMLInputElement && el.type === 'radio';
+    return (el instanceof HTMLInputElement && el.type === 'radio') || el.getAttribute('role') === 'radio';
   }
 
   apply(ctx: AdapterContext, req: InteractionRequest): { ok: boolean; reason?: string; interactedEl?: HTMLElement } {
     const { el } = ctx;
     const r = req as RadioRequest;
-    if (!(el instanceof HTMLInputElement) || el.type !== 'radio') {
+    if (!((el instanceof HTMLInputElement && el.type === 'radio') || el.getAttribute('role') === 'radio')) {
       return { ok: false, reason: 'element is not a radio' };
     }
     if (isDisabledForInteraction(el)) {
       return { ok: false, reason: 'radio is disabled' };
     }
+    
+    const isCustom = el.getAttribute('role') === 'radio';
+    if (isCustom) {
+      const name = el.getAttribute('name');
+      const radiogroup = el.closest('[role="radiogroup"]');
+      const ariaLabelledby = el.getAttribute('aria-labelledby');
+      const root = 'form' in el ? (el as any).form ?? document : document;
+      const allRadios = Array.from(root.querySelectorAll('[role="radio"]')) as HTMLElement[];
+      const siblings = allRadios.filter(c => {
+         if (name && c.getAttribute('name') === name) return true;
+         if (radiogroup && c.closest('[role="radiogroup"]') === radiogroup) return true;
+         if (ariaLabelledby && c.getAttribute('aria-labelledby') === ariaLabelledby) return true;
+         if (!name && !radiogroup && !ariaLabelledby) return c === el;
+         return false;
+      });
+      const target = siblings.find(g => (g.getAttribute('value') ?? '') === r.value);
+      if (!target) return { ok: false, reason: `radio option "${r.value}" not found` };
+      if (isDisabledForInteraction(target)) return { ok: false, reason: `radio option "${r.value}" is disabled` };
+      
+      const isChecked = target.getAttribute('aria-checked') === 'true';
+      if (isChecked && target === el) return { ok: true };
+      
+      try { target.focus(); } catch {}
+      if (!isChecked) {
+        try { simulateClick(target); } catch (err) {
+          return { ok: false, reason: 'click dispatch failed: ' + (err instanceof Error ? err.message : String(err)) };
+        }
+      }
+      try { target.blur(); } catch {}
+      return { ok: true, interactedEl: target };
+    }
+
     const groupName = el.getAttribute('name') ?? '';
     if (!groupName) {
       return { ok: false, reason: 'radio has no group name' };
     }
-    // C2 fix: Scope radio groups to the owning form (per HTML spec).
-    // If the radio has no form owner, fall back to document scope.
-    // M5 fix: Use CSS.escape() to prevent selector injection.
-    const form = el.form;
+    
+    const form = (el as HTMLInputElement).form;
     const root: ParentNode = form ?? document;
     const group = Array.from(
       root.querySelectorAll(`input[type="radio"][name="${cssEscape(groupName)}"]`),
@@ -76,14 +106,8 @@ export class RadioAdapter implements Adapter {
         return { ok: false, reason: 'click dispatch failed: ' + (err instanceof Error ? err.message : String(err)) };
       }
     }
-    // M2 fix: Only dispatch change events if simulateClick did not fire a native click
-    // (i.e., the radio was already checked). If we just clicked it, the native click
-    // already fired input/change, so we skip the duplicate dispatch.
     if (target.checked) {
-      // Already was checked before click, or click didn't actually change state.
-      // Dispatch manually to ensure events fire.
     } else {
-      // Click was dispatched above but checked didn't flip (shouldn't happen).
       dispatchChange(target);
     }
     try {
