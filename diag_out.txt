@@ -1,0 +1,114 @@
+
+=== MINIMAL PROFILE (integration-like) ===
+Completed: 22  |  Skipped: 62  |  Total: 84
+
+  [no matching profile value] (44):
+    - bioField (textarea) "Short bio" → no_profile_match
+    - companyField (input-text) "Current / most recent company" → no_profile_match
+    - jobTitleField (input-text) "Job title" → no_profile_match
+    - employmentTypeField (select) "Employment type" → no_profile_match
+    - experienceLevelField (select) "Experience level" → no_profile_match
+    - yearsExperienceField (input-number) "Years of experience" → no_profile_match
+    - expectedSalaryField (input-number) "Expected salary (USD)" → no_profile_match
+    - workLocation (input-radio) "Work location preference" → no_profile_match
+    - noticePeriod (input-radio) "Notice period" → no_profile_match
+    - preferredStartDateField (input-date) "Preferred start date" → no_profile_match
+    - preferredInterviewTimeField (input-time) "Preferred interview time" → no_profile_match
+    - hoursOverlap (input-radio) "Working hours overlap (UTC)" → no_profile_match
+    - referralSourceField (select) "How did you hear about us?" → no_profile_match
+    - frameworks (input-checkbox) "React" → no_profile_match
+    - frameworks (input-checkbox) "Vue" → no_profile_match
+    - frameworks (input-checkbox) "Svelte" → no_profile_match
+    - frameworks (input-checkbox) "Angular" → no_profile_match
+    - frameworks (input-checkbox) "Solid" → no_profile_match
+    - backend (input-checkbox) "Node.js" → no_profile_match
+    - backend (input-checkbox) "Python" → no_profile_match
+    - backend (input-checkbox) "Go" → no_profile_match
+    - backend (input-checkbox) "Rust" → no_profile_match
+    - backend (input-checkbox) "Java" → no_profile_match
+    - cloud (input-checkbox) "AWS" → no_profile_match
+    - cloud (input-checkbox) "Google Cloud" → no_profile_match
+    - cloud (input-checkbox) "Azure" → no_profile_match
+    - cloud (input-checkbox) "Fly.io" → no_profile_match
+    - preferredLanguageField (select) "Preferred language" → no_profile_match
+    - timezoneField (select) "Time zone" → no_profile_match
+    - newsletter (input-checkbox) "Send me the weekly engineering newsletter" → no_profile_match
+    - events (input-checkbox) "Notify me about upcoming hiring events" → no_profile_match
+    - anonymousProfile (input-checkbox) "Allow my profile to be shared anonymously with hiring managers" → no_profile_match
+    - searchBoxField (input-search) "Search for a team" → no_profile_match
+    - minSalaryField (input-number) "Minimum salary" → no_profile_match
+    - maxSalaryField (input-number) "Maximum salary" → no_profile_match
+    - remoteOkField (select) "Open to remote?" → no_profile_match
+    - termsField (input-checkbox) "I have read and agree to the
+                terms of service
+                and the
+                privacy policy. *" → no_profile_match
+    - ageConfirmField (input-checkbox) "I confirm I am at least 18 years old. *" → no_profile_match
+    - trailingSpaceField (input-text) "Trim me" → no_profile_match
+    - punctField (input-text) "Field, with: punctuation! everywhere?" → no_profile_match
+    - longLabelField (input-text) "This is a deliberately verbose descriptive label that goes on and on about the kind of input expected, with multiple clauses and parenthetical asides (per spec section 9, edge cases)" → no_profile_match
+    - emptyLabelField (input-text) "No visible label, placeholder only" → no_profile_match
+    - ariaLabelledByField (input-text) "Field with aria-labelledby (this text is the label)" → no_profile_match
+    - ariaOnlyField (input-text) "Hidden aria-only label" → no_profile_match
+  [sensitive/protected field] (9):
+    - passwordField (input-password) "Password" → sensitive field
+    - recoveryEmailField (input-email) "Recovery email (optional)" → no_reliable_label (sensitive or protected field)
+    - securityQuestionField (input-text) "Two-factor recovery code" → no_reliable_label (sensitive or protected field)
+    - resumeField (input-file) "Upload resume (file)" → sensitive field
+    - captchaField (input-text) "Verification code (bot challenge)" → no_reliable_label (sensitive or protected field)
+    - creditCardField (input-text) "Credit card number" → no_reliable_label (sensitive or protected field)
+    - cvvField (input-text) "CVV" → no_reliable_label (sensitive or protected field)
+    - otpField (input-text) "One-time password" → no_reliable_label (sensitive or protected field)
+    - ibanField (input-text) "IBAN (bank account)" → no_reliable_label (sensitive or protected field)
+  [field already has a value] (5):
+    - alreadyFilledField (input-text) "Already filled (locked)" → field already has a value
+    - hiddenField (input-text) "Hidden (display:none)" → field already has a value
+    - visHiddenField (input-text) "Visibility: hidden" → field already has a value
+    - zeroOpacityField (input-text) "Opacity: 0" → field already has a value
+    - ariaHiddenField (input-text) "aria-hidden" → field already has a value
+  [readonly/disabled] (2):
+    - readonlyField (input-text) "Read-only (admin-set)" → field is readonly
+    - disabledField (input-text) "Disabled (legacy)" → field is disabled
+  [hidden field] (1):
+    - referralOtherField (input-text) "Please specify where you heard about us" → field is not visible
+  [radio/checkbox/select handling] (1):
+    - contactMethod (input-radio) "Preferred contact method" → radio_value_not_found (no radio option matches "jane.doe@example.com")
+
+  → Minimal profile: 22 completed, 62 skipped out of 84
+
+=== COMPREHENSIVE PROFILE ===
+Completed: 67  |  Skipped: 17  |  Total: 84
+
+  [sensitive/protected field] (9):
+    - passwordField (input-password) "Password" → sensitive field
+    - recoveryEmailField (input-email) "Recovery email (optional)" → no_reliable_label (sensitive or protected field)
+    - securityQuestionField (input-text) "Two-factor recovery code" → no_reliable_label (sensitive or protected field)
+    - resumeField (input-file) "Upload resume (file)" → sensitive field
+    - captchaField (input-text) "Verification code (bot challenge)" → no_reliable_label (sensitive or protected field)
+    - creditCardField (input-text) "Credit card number" → no_reliable_label (sensitive or protected field)
+    - cvvField (input-text) "CVV" → no_reliable_label (sensitive or protected field)
+    - otpField (input-text) "One-time password" → no_reliable_label (sensitive or protected field)
+    - ibanField (input-text) "IBAN (bank account)" → no_reliable_label (sensitive or protected field)
+  [field already has a value] (5):
+    - alreadyFilledField (input-text) "Already filled (locked)" → field already has a value
+    - hiddenField (input-text) "Hidden (display:none)" → field already has a value
+    - visHiddenField (input-text) "Visibility: hidden" → field already has a value
+    - zeroOpacityField (input-text) "Opacity: 0" → field already has a value
+    - ariaHiddenField (input-text) "aria-hidden" → field already has a value
+  [readonly/disabled] (2):
+    - readonlyField (input-text) "Read-only (admin-set)" → field is readonly
+    - disabledField (input-text) "Disabled (legacy)" → field is disabled
+  [hidden field] (1):
+    - referralOtherField (input-text) "Please specify where you heard about us" → field is not visible
+
+  → Comprehensive profile: 67 completed, 17 skipped out of 84
+✔ complex-form diagnosis: minimal profile (707.5215ms)
+✔ complex-form diagnosis: comprehensive profile (143.0373ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 868.6343

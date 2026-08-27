@@ -136,3 +136,38 @@ test('matching: ambiguous semantic matches fallback correctly', () => {
     assert.equal(plan.request.kind, 'select-radio');
   }
 });
+
+test('matching: select dropdown fuzzy matching', () => {
+  const profile = {
+    country: 'United States',
+    role: 'Senior Software Engineer',
+    source: 'Search Engine'
+  };
+
+  // 1. Profile value in option text ("United States" in "United States of America")
+  const field1 = makeField({
+    controlType: 'select',
+    name: 'country',
+    options: [{ value: 'us', text: 'United States of America', selected: false, disabled: false }]
+  });
+  const plan1 = planField(field1, profile);
+  assert.equal(plan1.ok, true);
+
+  // 2. Option text in profile value ("Software Engineer" in "Senior Software Engineer")
+  const field2 = makeField({
+    controlType: 'select',
+    name: 'role',
+    options: [{ value: 'swe', text: 'Software Engineer', selected: false, disabled: false }]
+  });
+  const plan2 = planField(field2, profile);
+  assert.equal(plan2.ok, true);
+
+  // 3. Substring with punctuation ("Search Engine" in "Search Engine (Google, Bing)")
+  const field3 = makeField({
+    controlType: 'select',
+    name: 'source',
+    options: [{ value: 'search', text: 'Search Engine (Google, Bing, etc)', selected: false, disabled: false }]
+  });
+  const plan3 = planField(field3, profile);
+  assert.equal(plan3.ok, true);
+});

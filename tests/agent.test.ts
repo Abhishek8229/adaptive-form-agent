@@ -319,7 +319,7 @@ test('agent: checkbox false maps to uncheck', () => {
 
 test('agent: checkbox non-boolean value is skipped', () => {
   const field = makeField({ controlType: 'input-checkbox' });
-  const r = valueToInteraction(field, 'agree', 'yes', 'label');
+  const r = valueToInteraction(field, 'agree', 42, 'label');
   assert.equal(r.ok, false);
   if (!r.ok) {
     assert.equal(r.reason, 'checkbox_value_not_boolean');

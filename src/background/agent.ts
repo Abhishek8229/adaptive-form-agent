@@ -219,7 +219,9 @@ function pickKeyByLabelFuzzy(
       if (!matched.includes(key)) matched.push(key);
     }
   }
-  return matched;
+  
+  // Sort by length descending to prefer more specific (longer) keys over generic ones
+  return matched.sort((a, b) => b.length - a.length);
 }
 
 const LABEL_SYNONYMS: Record<string, string[]> = {
@@ -308,6 +310,16 @@ export function planField(
   for (const k of fuzzyKeys) addCandidate(k, 'label');
 
   if (candidates.length === 0) {
+    if (field.controlType === 'input-checkbox' && field.required) {
+      const req: CheckboxRequest = { stableId: field.stableId, kind: 'check' };
+      return {
+        ok: true,
+        profileKey: '__consent__',
+        value: true,
+        request: req,
+        match: 'semantic',
+      };
+    }
     return { ok: false, reason: 'no_profile_match' };
   }
 
@@ -327,13 +339,46 @@ export function planField(
 
 // ---------- valueToInteraction ----------
 
-function findSelectOptionByValue(options: FormOption[], wanted: string): FormOption | null {
-  return options.find((o) => o.value === wanted) ?? null;
-}
-
-function findSelectOptionByText(options: FormOption[], wanted: string): FormOption | null {
+function findSelectOptionFuzzy(options: FormOption[], wanted: string): FormOption | null {
   const w = wanted.trim().toLowerCase();
-  return options.find((o) => (o.text ?? '').trim().toLowerCase() === w) ?? null;
+  if (!w) return null;
+
+  // 1. Exact value match
+  let match = options.find((o) => (o.value ?? '').trim().toLowerCase() === w);
+  if (match) return match;
+
+  // 2. Exact text match
+  match = options.find((o) => (o.text ?? '').trim().toLowerCase() === w);
+  if (match) return match;
+
+  const normW = normalizeKey(w);
+  if (!normW) return null;
+
+  // 3. Substring match on text (Profile value in option text)
+  match = options.find((o) => {
+    const normText = normalizeKey(o.text ?? '');
+    return normText && normText.includes(normW);
+  });
+  if (match) return match;
+
+  // 4. Substring match on value (Profile value in option value)
+  match = options.find((o) => {
+    const normVal = normalizeKey(o.value ?? '');
+    return normVal && normW.length >= 3 && normVal.includes(normW);
+  });
+  if (match) return match;
+
+  // 5. Reverse substring match on text (Option text in profile value)
+  match = options.find((o) => {
+    const normText = normalizeKey(o.text ?? '');
+    if (!normText) return false;
+    if (normText.length < 4) {
+      return new RegExp(`\\b${normText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i').test(normW);
+    }
+    return normW.includes(normText);
+  });
+  
+  return match ?? null;
 }
 
 function asString(v: ProfileValue): string | null {
@@ -366,15 +411,25 @@ export function valueToInteraction(
 
   // --- checkboxes ---
   if (controlType === 'input-checkbox') {
+    let check: boolean | null = null;
     if (typeof value === 'boolean') {
-      const kind: InteractionKind = value ? 'check' : 'uncheck';
+      check = value;
+    } else if (typeof value === 'string') {
+      const lower = value.trim().toLowerCase();
+      if (lower === 'yes' || lower === 'true' || lower === '1') check = true;
+      else if (lower === 'no' || lower === 'false' || lower === '0') check = false;
+    }
+
+    if (check !== null) {
+      const kind: InteractionKind = check ? 'check' : 'uncheck';
       const req: CheckboxRequest = { stableId: field.stableId, kind };
       return basePlan(req);
     } else if (Array.isArray(value)) {
-      const haystack = [field.label, field.name, field.id].filter(Boolean).join(' ').toLowerCase();
+      const optionValue = field.options?.[0]?.value ?? '';
+      const haystack = [field.label, field.name, field.id, optionValue].filter(Boolean).join(' ').toLowerCase();
       let matched = false;
       for (const item of value) {
-        if (typeof item === 'string' && haystack.includes(item.toLowerCase())) {
+        if (typeof item === 'string' && haystack.includes(item.trim().toLowerCase())) {
           matched = true;
           break;
         }
@@ -383,7 +438,7 @@ export function valueToInteraction(
       const req: CheckboxRequest = { stableId: field.stableId, kind };
       return basePlan(req);
     }
-    return baseSkip('checkbox_value_not_boolean', `profile "${key}" is ${typeof value}, expected boolean or array`);
+    return baseSkip('checkbox_value_not_boolean', `profile "${key}" is ${typeof value}, expected boolean, string (yes/no) or array`);
   }
 
   // --- radio (single-field surface in detector is one FormField with options[]) ---
@@ -392,9 +447,7 @@ export function valueToInteraction(
       return baseSkip('radio_value_not_found', `profile "${key}" is not a string`);
     }
     const wanted = value;
-    const matchOpt =
-      findSelectOptionByValue(field.options, wanted) ??
-      findSelectOptionByText(field.options, wanted);
+    const matchOpt = findSelectOptionFuzzy(field.options, wanted);
     if (!matchOpt) {
       return baseSkip('radio_value_not_found', `no radio option matches "${wanted}"`);
     }
@@ -412,9 +465,7 @@ export function valueToInteraction(
       return baseSkip('select_option_not_found', 'profile value is null');
     }
     if (typeof value === 'string') {
-      const matchOpt =
-        findSelectOptionByValue(field.options, value) ??
-        findSelectOptionByText(field.options, value);
+      const matchOpt = findSelectOptionFuzzy(field.options, value);
       if (!matchOpt) {
         return baseSkip('select_option_not_found', `no option matches "${value}"`);
       }
@@ -431,7 +482,7 @@ export function valueToInteraction(
       if (typeof target !== 'string') {
         return baseSkip('select_option_not_found', 'profile value object is malformed');
       }
-      const matchOpt = findSelectOptionByValue(field.options, target);
+      const matchOpt = findSelectOptionFuzzy(field.options, target);
       if (!matchOpt) {
         return baseSkip('select_option_not_found', `no option matches value "${target}"`);
       }
