@@ -608,7 +608,7 @@ test('interaction: 7. Cross-form radio groups', async () => {
   const page = detectPage();
   setPageSnapshot(page);
   
-  const fieldPro2 = page.forms[1].fields[1];
+  const fieldPro2 = page.forms[1].fields[0];
   const req: InteractionRequest = { kind: 'select-radio', stableId: fieldPro2.stableId, value: 'pro' };
   const res = await runInteraction(req);
   assert.equal(res.success, true);

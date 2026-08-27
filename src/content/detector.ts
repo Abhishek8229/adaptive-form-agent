@@ -276,6 +276,9 @@ function buildSubmitTarget(
 
 export const liveElements = new Map<string, WeakRef<HTMLElement>>();
 
+// Track radios that have already been grouped to prevent emitting them as standalone fields
+let seenRadios = new WeakSet<HTMLInputElement>();
+
 function buildField(
   el: FormElement,
   groupId: string,
@@ -293,7 +296,7 @@ function buildField(
   const readOnly = isReadOnly(el);
   const visible = isElementVisible(el);
   const autocomplete = getAutocomplete(el);
-  const label = findLabelText(el, id);
+  let label = findLabelText(el, id);
 
   const { hint, sources } = inferSemanticHint({
     type,
@@ -313,13 +316,51 @@ function buildField(
   if (el instanceof HTMLSelectElement) {
     options = extractOptions(el);
   } else if (el instanceof HTMLInputElement && el.type === 'radio') {
-    const v = el.value ?? '';
-    options = [{
-      value: v,
-      text: (el.getAttribute('aria-label') ?? '').trim() || v,
-      selected: el.checked,
-      disabled: el.disabled,
-    }];
+    const radioName = el.name;
+    if (radioName) {
+      const root = owner ?? document;
+      let escapedName = radioName;
+      if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+        escapedName = CSS.escape(radioName);
+      } else {
+        escapedName = radioName.replace(/([!"#$%&'()*+,./:;<=>?@[\]^`{|}~])/g, '\\$1');
+      }
+      
+      const siblings = Array.from(root.querySelectorAll(`input[type="radio"][name="${escapedName}"]`)) as HTMLInputElement[];
+      for (const s of siblings) {
+        seenRadios.add(s);
+      }
+      
+      options = siblings.map(s => ({
+        value: s.value ?? '',
+        text: (s.getAttribute('aria-label') ?? '').trim() || findLabelText(s, s.id) || s.value || '',
+        selected: s.checked,
+        disabled: s.disabled,
+      }));
+      
+      let p: HTMLElement | null = el.parentElement;
+      while (p) {
+        if (p.tagName === 'FIELDSET') {
+          const leg = p.querySelector(':scope > legend');
+          if (leg && leg.textContent) {
+            const legendText = leg.textContent.trim();
+            if (legendText) {
+              label = legendText;
+            }
+          }
+          break;
+        }
+        p = p.parentElement;
+      }
+    } else {
+      const v = el.value ?? '';
+      options = [{
+        value: v,
+        text: (el.getAttribute('aria-label') ?? '').trim() || v,
+        selected: el.checked,
+        disabled: el.disabled,
+      }];
+    }
   }
 
   const stableId = `${groupId}.f${groupFieldIndex}`;
@@ -459,6 +500,9 @@ function detectFromRealForms(forms: HTMLFormElement[]): { groups: FormGroup[]; a
         continue;
       }
       if (!isCandidateControl(d)) continue;
+      if (d.tagName === 'INPUT' && (d as HTMLInputElement).type === 'radio' && (d as HTMLInputElement).name) {
+        if (seenRadios.has(d as HTMLInputElement)) continue;
+      }
       if (seen.has(d)) continue;
       seen.add(d);
       fields.push(buildField(d, groupId, fields.length, form));
@@ -497,6 +541,9 @@ function collectExternalControls(
     if (assigned.has(el)) continue;
     if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'hidden') continue;
     if (!isCandidateControl(el)) continue;
+    if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'radio' && (el as HTMLInputElement).name) {
+      if (seenRadios.has(el as HTMLInputElement)) continue;
+    }
     const owner = findOwnerForm(el, forms);
     if (!owner) continue;
     const gIdx = groupIndexByForm.get(owner);
@@ -522,6 +569,9 @@ function collectLooseControls(assigned: WeakSet<Element>): FormElement[] {
     if (assigned.has(el)) continue;
     if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'hidden') continue;
     if (!isCandidateControl(el)) continue;
+    if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'radio' && (el as HTMLInputElement).name) {
+      if (seenRadios.has(el as HTMLInputElement)) continue;
+    }
     loose.push(el);
   }
   return loose;
@@ -566,6 +616,7 @@ function buildLogicalGroup(loose: FormElement[], index: number): FormGroup {
 
 export function detectPage(): FormPage {
   liveElements.clear();
+  seenRadios = new WeakSet<HTMLInputElement>();
   const forms = Array.from(document.querySelectorAll('form'));
   const { groups, assigned, groupIndexByForm } = detectFromRealForms(forms);
 

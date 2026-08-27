@@ -336,7 +336,7 @@ test('complex-form diagnosis: minimal profile', async () => {
   const skipped = diagnostics.filter(d => d.outcome === 'skipped');
   const completed = diagnostics.filter(d => d.outcome === 'completed');
 
-  assert.ok(allFields.length === 95, `expected 95 fields, got ${allFields.length}`);
+  assert.ok(allFields.length === 84, `expected 84 fields, got ${allFields.length}`);
   // Just record the counts, no assertion on specific numbers
   console.log(`\n  → Minimal profile: ${completed.length} completed, ${skipped.length} skipped out of ${allFields.length}`);
 });
@@ -355,6 +355,6 @@ test('complex-form diagnosis: comprehensive profile', async () => {
   const skipped = diagnostics.filter(d => d.outcome === 'skipped');
   const completed = diagnostics.filter(d => d.outcome === 'completed');
 
-  assert.ok(allFields.length === 95, `expected 95 fields, got ${allFields.length}`);
+  assert.ok(allFields.length === 84, `expected 84 fields, got ${allFields.length}`);
   console.log(`\n  → Comprehensive profile: ${completed.length} completed, ${skipped.length} skipped out of ${allFields.length}`);
 });
