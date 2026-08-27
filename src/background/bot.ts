@@ -223,80 +223,93 @@ export class Bot {
   }
 
   private async loop(): Promise<void> {
-    // 1. Fresh scan before processing.
-    const scanRes = await this.bridge.scan(this.tabId);
-    if (!scanRes.ok || !scanRes.result) {
-      throw new Error(scanRes.error ?? 'scan failed');
-    }
-    const page = scanRes.result;
-    if (!page) {
-      this.status = 'done';
-      this.finishedAt = this.clock().toISOString();
-      this.emit();
-      return;
-    }
+    const attemptedStableIds = new Set<string>();
+    const skippedStableIds = new Set<string>();
+    let progress = true;
 
-    const fields = flattenFields(page);
-    this.counters.total = fields.length;
-    this.emit();
+    while (progress && !this.stopRequested) {
+      progress = false;
 
-    for (const field of fields) {
-      if (this.stopRequested) {
-        this.currentField = null;
-        this.finishedAt = this.clock().toISOString();
-        if (this.status === 'running') this.status = 'stopped';
-        this.emit();
-        return;
+      // 1. Fresh scan before processing.
+      const scanRes = await this.bridge.scan(this.tabId);
+      if (!scanRes.ok || !scanRes.result) {
+        throw new Error(scanRes.error ?? 'scan failed');
+      }
+      const page = scanRes.result;
+      if (!page) {
+        break;
       }
 
-      const skip = preFilter(field);
-      if (skip !== null) {
+      const fields = flattenFields(page);
+      
+      this.counters.total = fields.length;
+      this.emit();
+
+      for (const field of fields) {
+        if (this.stopRequested) {
+          break;
+        }
+
+        if (attemptedStableIds.has(field.stableId)) {
+          continue;
+        }
+
+        const skip = preFilter(field);
+        if (skip !== null) {
+          skippedStableIds.add(field.stableId);
+          this.currentField = {
+            stableId: field.stableId,
+            label: fieldLabel(field),
+            reason: skip,
+          };
+          this.counters.skipped = skippedStableIds.size;
+          this.emit();
+          continue;
+        }
+
+        skippedStableIds.delete(field.stableId);
+        attemptedStableIds.add(field.stableId);
+
+        // Ask the planner.
+        const plan: PlanResult = planField(field, this.profile.profile);
+        if (!plan.ok) {
+          skippedStableIds.add(field.stableId);
+          this.currentField = {
+            stableId: field.stableId,
+            label: fieldLabel(field),
+            reason: plan.reason,
+          };
+          this.counters.skipped = skippedStableIds.size;
+          this.emit();
+          continue;
+        }
+
         this.currentField = {
           stableId: field.stableId,
           label: fieldLabel(field),
-          reason: skip,
+          reason: `filling via "${plan.profileKey}" (${plan.match})`,
         };
-        this.counters.skipped += 1;
         this.emit();
-        continue;
-      }
 
-      // Ask the planner.
-      const plan: PlanResult = planField(field, this.profile.profile);
-      if (!plan.ok) {
-        this.currentField = {
-          stableId: field.stableId,
-          label: fieldLabel(field),
-          reason: plan.reason,
-        };
-        this.counters.skipped += 1;
-        this.emit();
-        continue;
-      }
-
-      this.currentField = {
-        stableId: field.stableId,
-        label: fieldLabel(field),
-        reason: `filling via "${plan.profileKey}" (${plan.match})`,
-      };
-      this.emit();
-
-      // Dispatch and await the engine's result before moving on.
-      const ir = await this.bridge.interact(this.tabId, plan.request);
-      if (!ir.ok || !ir.result) {
-        this.counters.failed += 1;
-        this.lastError = ir.error ?? 'interact returned no result';
-        this.emit();
-        continue;
-      }
-      if (ir.result.success) {
-        this.counters.completed += 1;
-      } else {
-        // Engine rejected (resolver/safety/validity). Treat as skip with
-        // the engine's reason, but count as failure so the user sees it.
-        this.counters.failed += 1;
-        this.lastError = ir.result.reason ?? 'interact failed';
-        this.emit();
+        // Dispatch and await the engine's result before moving on.
+        const ir = await this.bridge.interact(this.tabId, plan.request);
+        if (!ir.ok || !ir.result) {
+          this.counters.failed += 1;
+          this.lastError = ir.error ?? 'interact returned no result';
+          this.emit();
+          continue;
+        }
+        if (ir.result.success) {
+          this.counters.completed += 1;
+          progress = true;
+          break;
+        } else {
+          // Engine rejected (resolver/safety/validity). Treat as skip with
+          // the engine's reason, but count as failure so the user sees it.
+          this.counters.failed += 1;
+          this.lastError = ir.result.reason ?? 'interact failed';
+          this.emit();
+        }
       }
     }
 

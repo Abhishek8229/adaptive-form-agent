@@ -466,3 +466,38 @@ test('bot: scan ok:true with missing result triggers error (regression)', async 
   assert.equal(snap.counters.total, 0);
   assert.equal(snap.counters.completed, 0);
 });
+
+// ---------- Dynamic Fields (Architectural Bug Fix) ----------
+
+test('bot: rescans and discovers newly visible fields after successful interaction', async () => {
+  const f1 = makeField({ stableId: 'g.f1', target: { name: 'referralSource' } });
+  const f2Hidden = makeField({ stableId: 'g.f2', target: { name: 'referralOther' }, visible: false });
+  const f2Visible = makeField({ stableId: 'g.f2', target: { name: 'referralOther' }, visible: true });
+
+  let scanCount = 0;
+  const bridge: FakeBridge = {
+    async scan() {
+      scanCount++;
+      // On first scan, f2 is hidden. On subsequent scans (after interaction), it's visible.
+      return { ok: true, result: makePage([f1, scanCount === 1 ? f2Hidden : f2Visible]) };
+    },
+    async interact(_tabId, request) {
+      return {
+        ok: true,
+        result: { success: true, stableId: request.stableId, kind: request.kind, retried: false },
+      };
+    },
+  };
+
+  const status = captureStatus();
+  const profile = makeProfile({ referralSource: 'other', referralOther: 'A podcast episode' });
+  const bot = new Bot({ tabId: 1, profile, bridge, pushStatus: status.push });
+  const snap = await bot.run();
+
+  assert.equal(snap.status, 'done');
+  // 1st scan -> interacts f1 -> triggers 2nd scan -> interacts f2 -> triggers 3rd scan -> completes
+  assert.equal(scanCount, 3); 
+  assert.equal(snap.counters.completed, 2);
+  assert.equal(snap.counters.skipped, 0);
+  assert.equal(snap.counters.failed, 0);
+});
