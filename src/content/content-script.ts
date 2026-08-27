@@ -155,7 +155,7 @@ chrome.runtime.onMessage.addListener((message: ScanPageMessage | GetDetectionMes
   if (message.type === SCAN_PAGE_MESSAGE) {
     runImmediateScan();
     const count = lastResult?.totalFieldCount ?? 0;
-    sendResponse({ ok: true, count, formCount: lastResult?.formCount ?? 0 });
+    sendResponse({ ok: true, count, formCount: lastResult?.formCount ?? 0, result: lastResult });
     return true;
   }
 

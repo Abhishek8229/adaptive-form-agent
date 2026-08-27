@@ -68,123 +68,126 @@ header h1 { font-size: 14px; margin: 0 0 2px 0; }
 }
 .form-card .invisible, .form-card .disabled { opacity: 0.55; }
 
-/* ---- Persona ---- */
+/* ---- Profile ---- */
 
-.persona { margin-top: 14px; border-top: 1px solid #ddd; padding-top: 10px; }
-@media (prefers-color-scheme: dark) { .persona { border-top-color: #333; } }
-.persona h2 { font-size: 12px; margin: 0 0 6px 0; opacity: 0.85; }
-.persona h3 { font-size: 11px; margin: 8px 0 4px 0; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.04em; }
+.profiles {
+  margin-top: 14px;
+  border-top: 1px solid #ddd;
+  padding-top: 10px;
+}
+@media (prefers-color-scheme: dark) { .profiles { border-top-color: #333; } }
+.profiles h2 { font-size: 12px; margin: 0 0 6px 0; opacity: 0.85; }
 
-.persona-actions { display: flex; gap: 4px; margin-bottom: 6px; }
-.persona-actions button {
+.profile-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.profile-row .label { opacity: 0.7; font-size: 11px; }
+.profile-row select {
   flex: 1;
-  padding: 5px 6px;
-  font-size: 11px;
-  border: 1px solid #888;
-  background: #f4f4f4;
-  color: inherit;
-  border-radius: 3px;
-  cursor: pointer;
-}
-.persona-actions button:hover { background: #e9e9e9; }
-.persona-actions button.danger { border-color: #b44; color: #b44; }
-@media (prefers-color-scheme: dark) {
-  .persona-actions button { background: #2a2a2a; border-color: #444; }
-  .persona-actions button:hover { background: #333; }
-  .persona-actions button.danger { color: #f88; border-color: #a55; }
-}
-
-.persona-status { font-size: 11px; opacity: 0.8; min-height: 14px; margin-bottom: 4px; }
-.persona-status.error { color: #b00; }
-@media (prefers-color-scheme: dark) { .persona-status.error { color: #f77; } }
-
-.persona-section { margin-top: 6px; }
-
-.persona-identity { font-size: 11px; opacity: 0.85; }
-.persona-identity .kv { display: flex; gap: 6px; }
-.persona-identity .kv .k { opacity: 0.65; min-width: 90px; }
-.persona-identity .kv .v { word-break: break-word; }
-.persona-identity .empty { opacity: 0.6; font-style: italic; }
-
-.persona-add {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin-bottom: 4px;
-  padding: 4px;
-  border: 1px dashed #aaa;
-  border-radius: 3px;
-}
-.persona-add input, .persona-add select {
-  font-size: 11px;
-  padding: 3px 5px;
+  font-size: 12px;
+  padding: 4px 6px;
   border: 1px solid #888;
   background: #fff;
   color: inherit;
-  border-radius: 2px;
-}
-.persona-add button {
-  grid-column: 1 / span 2;
-  font-size: 11px;
-  padding: 4px 6px;
-  border: 1px solid #888;
-  background: #f4f4f4;
-  color: inherit;
   border-radius: 3px;
-  cursor: pointer;
 }
 @media (prefers-color-scheme: dark) {
-  .persona-add { border-color: #444; }
-  .persona-add input, .persona-add select { background: #2a2a2a; border-color: #444; }
-  .persona-add button { background: #2a2a2a; border-color: #444; }
+  .profile-row select { background: #2a2a2a; border-color: #444; }
 }
 
-.persona-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-.persona-list li {
+.profile-status {
   font-size: 11px;
-  padding: 4px 6px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
+  opacity: 0.8;
+  min-height: 14px;
+  margin-bottom: 6px;
+}
+.profile-status.error { color: #b00; }
+@media (prefers-color-scheme: dark) { .profile-status.error { color: #f77; } }
+
+.profile-actions {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
-@media (prefers-color-scheme: dark) { .persona-list li { border-color: #444; } }
-.persona-list .row1 { display: flex; gap: 6px; align-items: baseline; }
-.persona-list .id { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; opacity: 0.6; word-break: break-all; }
-.persona-list .subject { font-weight: 600; }
-.persona-list .predicate { opacity: 0.85; }
-.persona-list .row2 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.persona-list .badge {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 8px;
-  border: 1px solid currentColor;
-  text-transform: lowercase;
-}
-.persona-list .status-true { color: #157f3d; }
-.persona-list .status-false { color: #b14444; }
-.persona-list .status-unknown { color: #888; }
-.persona-list .status-active { color: #0a66c2; }
-.persona-list .status-completed { color: #157f3d; }
-.persona-list .status-abandoned { color: #b14444; }
-.persona-list .status-unknown { color: #888; }
-.persona-list .horizon { font-size: 10px; opacity: 0.7; }
-.persona-list .meta { font-size: 10px; opacity: 0.7; }
-.persona-list .tags { font-size: 10px; opacity: 0.6; }
-.persona-list .controls { margin-left: auto; display: flex; gap: 3px; }
-.persona-list .controls button {
-  font-size: 10px;
-  padding: 1px 6px;
+.profile-actions button, .profile-actions .file-button {
+  flex: 1;
+  font-size: 11px;
+  padding: 6px 6px;
   border: 1px solid #888;
   background: #f4f4f4;
   color: inherit;
-  border-radius: 2px;
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: center;
+}
+.profile-actions button:hover, .profile-actions .file-button:hover { background: #e9e9e9; }
+.profile-actions button.danger { border-color: #b44; color: #b44; }
+.profile-actions button.secondary { }
+@media (prefers-color-scheme: dark) {
+  .profile-actions button, .profile-actions .file-button { background: #2a2a2a; border-color: #444; }
+  .profile-actions button:hover, .profile-actions .file-button:hover { background: #333; }
+  .profile-actions button.danger { color: #f88; border-color: #a55; }
+}
+
+/* ---- Bot ---- */
+
+.bot {
+  margin-top: 14px;
+  border-top: 1px solid #ddd;
+  padding-top: 10px;
+}
+@media (prefers-color-scheme: dark) { .bot { border-top-color: #333; } }
+.bot h2 { font-size: 12px; margin: 0 0 6px 0; opacity: 0.85; }
+
+.bot-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.bot-actions button {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 6px;
+  border: 1px solid #888;
+  background: #f4f4f4;
+  color: inherit;
+  border-radius: 3px;
   cursor: pointer;
 }
-.persona-list .controls button:hover { background: #e9e9e9; }
+.bot-actions button:hover { background: #e9e9e9; }
+.bot-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.bot-actions button.primary { background: #157f3d; color: #fff; border-color: #157f3d; }
+.bot-actions button.primary:hover { background: #126a32; }
+.bot-actions button.danger { background: #b44; color: #fff; border-color: #b44; }
+.bot-actions button.danger:hover { background: #963636; }
 @media (prefers-color-scheme: dark) {
-  .persona-list .controls button { background: #2a2a2a; border-color: #444; }
-  .persona-list .controls button:hover { background: #333; }
+  .bot-actions button { background: #2a2a2a; border-color: #444; }
+  .bot-actions button:hover { background: #333; }
+  .bot-actions button.primary { background: #157f3d; border-color: #1a9a4a; }
+  .bot-actions button.danger { background: #a44; border-color: #b55; }
 }
-.persona-list .empty { font-style: italic; opacity: 0.6; padding: 4px 6px; }
+
+.bot-status {
+  font-size: 11px;
+  opacity: 0.85;
+  min-height: 14px;
+  margin-bottom: 4px;
+}
+.bot-status.error { color: #b00; opacity: 1; }
+.bot-status.running { color: #0a66c2; opacity: 1; }
+.bot-status.done { color: #157f3d; opacity: 1; }
+.bot-status.stopped { color: #b44; opacity: 1; }
+@media (prefers-color-scheme: dark) {
+  .bot-status.error { color: #f77; }
+  .bot-status.running { color: #6cb6ff; }
+  .bot-status.done { color: #6dd58c; }
+  .bot-status.stopped { color: #f88; }
+}
+
+.bot-row { display: flex; gap: 6px; align-items: baseline; margin: 2px 0; font-size: 11px; }
+.bot-row .label { opacity: 0.65; min-width: 80px; }
+.bot-row.counters { display: flex; gap: 10px; flex-wrap: wrap; }
+.bot-row.counters .label { min-width: 0; }

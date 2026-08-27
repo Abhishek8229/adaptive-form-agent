@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comprehensive Application Form - Test Fixture</title>
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --card: #ffffff;
+        --border: #d8dce1;
+        --text: #1d1f23;
+        --muted: #6b7280;
+        --accent: #2b5fff;
+        --accent-hover: #1f4cd1;
+        --danger: #b83232;
+        --ok: #1d7a3a;
+        --warn: #b8842a;
+        --code-bg: #f1f3f6;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+      .page {
+        max-width: 920px;
+        margin: 24px auto 80px;
+        padding: 0 18px;
+      }
+      .hero {
+        background: linear-gradient(135deg, #2b5fff 0%, #6e3bff 100%);
+        color: #fff;
+        border-radius: 10px;
+        padding: 22px 26px;
+        margin-bottom: 20px;
+      }
+      .hero h1 {
+        margin: 0 0 6px 0;
+        font-size: 22px;
+        letter-spacing: -0.01em;
+      }
+      .hero p {
+        margin: 0;
+        opacity: 0.92;
+        font-size: 14px;
+      }
+      .breadcrumb {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin-bottom: 16px;
+      }
+      .card h2 {
+        margin: 0 0 4px 0;
+        font-size: 17px;
+      }
+      .card .section-subtitle {
+        margin: 0 0 14px 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      fieldset {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 16px 14px;
+        margin: 0 0 14px 0;
+      }
+      fieldset legend {
+        font-weight: 600;
+        font-size: 14px;
+        padding: 0 6px;
+        color: var(--text);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 16px;
+      }
+      .grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+      .grid.cols-1 { grid-template-columns: 1fr; }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .field.full { grid-column: 1 / -1; }
+      label.lbl {
+        font-size: 13px;
+        font-weight: 500;
+        color: #2a2d33;
+      }
+      .req::after {
+        content: " *";
+        color: var(--danger);
+      }
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      input[type="text"],
+      input[type="email"],
+      input[type="tel"],
+      input[type="number"],
+      input[type="date"],
+      input[type="time"],
+      input[type="url"],
+      input[type="search"],
+      textarea,
+      select {
+        font: inherit;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #fff;
+        color: inherit;
+        width: 100%;
+        min-width: 0;
+      }
+      input:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(43, 95, 255, 0.18);
+      }
+      input[disabled], textarea[disabled], select[disabled] {
+        background: #f1f3f6;
+        color: #888;
+        cursor: not-allowed;
+      }
+      input[readonly] {
+        background: #f8f9fb;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 84px;
+      }
+      .checkbox-list, .radio-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 4px 0 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .checkbox-list li, .radio-list li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .inline-radios {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 18px;
+        margin-top: 4px;
+      }
+      .inline-radios label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+      }
+      .error-msg {
+        color: var(--danger);
+        font-size: 12px;
+        min-height: 14px;
+        margin-top: 2px;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      button {
+        font: inherit;
+        padding: 9px 18px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: #f1f3f6;
+        color: var(--text);
+        cursor: pointer;
+      }
+      button:hover { background: #e6e9ee; }
+      button.primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      button.primary:hover { background: var(--accent-hover); }
+      .hidden-section {
+        margin-top: 10px;
+        padding: 12px;
+        background: #f8f9fb;
+        border: 1px dashed var(--border);
+        border-radius: 6px;
+        display: none;
+      }
+      .hidden-section.visible { display: block; }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        padding: 1px 7px;
+        border-radius: 10px;
+        background: #eef0f4;
+        color: var(--muted);
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+      .ok-banner {
+        display: none;
+        margin-top: 16px;
+        padding: 12px 16px;
+        background: #e8f6ec;
+        color: var(--ok);
+        border: 1px solid #b6dfc1;
+        border-radius: 8px;
+      }
+      .ok-banner.visible { display: block; }
+      hr.sep {
+        border: none;
+        border-top: 1px dashed var(--border);
+        margin: 16px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="breadcrumb">Jobs &rsaquo; Listings &rsaquo; Senior Frontend Engineer (Remote) &rsaquo; <strong>Apply</strong></div>
+      <div class="hero">
+        <h1>Application: Senior Frontend Engineer (Remote)</h1>
+        <p>This is a test fixture for the Adaptive Form Agent browser extension. It exercises ~60 form fields across many DOM patterns. Nothing is submitted anywhere.</p>
+      </div>
+
+      <form id="complex-form" novalidate>
+        <!-- ========================== SECTION 1: IDENTITY ========================== -->
+        <section class="card" aria-labelledby="sec-identity">
+          <h2 id="sec-identity">1. Your name &amp; contact</h2>
+          <p class="section-subtitle">All fields marked <span style="color:var(--danger)">*</span> are required.</p>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl req" for="fullNameField">Full name</label>
+              <input id="fullNameField" name="fullName" type="text" autocomplete="name" placeholder="Jane Q. Doe" required />
+            </div>
+            <div class="field">
+              <label class="lbl req" for="emailField">Email address</label>
+              <input id="emailField" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+            </div>
+
+            <div class="field">
+              <label class="lbl" for="firstNameField">First name</label>
+              <input id="firstNameField" name="first_name" type="text" autocomplete="given-name" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="lastNameField">Last name</label>
+              <input id="lastNameField" name="last_name" type="text" autocomplete="family-name" />
+            </div>
+
+            <div class="field">
+              <label class="lbl" for="phoneField">Phone number</label>
+              <input id="phoneField" name="phone" type="tel" autocomplete="tel" placeholder="+1 555 0100" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="personalSiteField">Personal website / portfolio</label>
+              <input id="personalSiteField" name="personalSite" type="url" autocomplete="url" placeholder="https://example.com" />
+            </div>
+
+            <div class="field full">
+              <label class="lbl" for="bioField">Short bio</label>
+              <textarea id="bioField" name="bio" rows="3" placeholder="Tell us about yourself in 2-3 sentences."></textarea>
+              <span class="hint">Max 500 characters.</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 2: ACCOUNT ========================== -->
+        <section class="card" aria-labelledby="sec-account">
+          <h2 id="sec-account">2. Account credentials</h2>
+          <p class="section-subtitle">The extension must not touch the password or recovery fields, even if a profile key seems to match.</p>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl req" for="usernameField">Username</label>
+              <input id="usernameField" name="username" type="text" autocomplete="username" required />
+            </div>
+            <div class="field">
+              <label class="lbl req" for="passwordField">Password</label>
+              <input id="passwordField" name="password" type="password" autocomplete="new-password" required />
+              <span class="hint">Must be at least 12 characters.</span>
+            </div>
+            <div class="field">
+              <label class="lbl" for="recoveryEmailField">Recovery email (optional)</label>
+              <input id="recoveryEmailField" name="recoveryEmail" type="email" autocomplete="email" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="securityQuestionField">Two-factor recovery code</label>
+              <input id="securityQuestionField" name="twoFactorCode" type="text" autocomplete="one-time-code" />
+              <span class="hint">Never filled by automation.</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 3: PROFESSIONAL ========================== -->
+        <section class="card" aria-labelledby="sec-professional">
+          <h2 id="sec-professional">3. Professional background</h2>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl" for="companyField">Current / most recent company</label>
+              <input id="companyField" name="currentCompany" type="text" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="jobTitleField">Job title</label>
+              <input id="jobTitleField" name="jobTitle" type="text" placeholder="e.g. Senior Frontend Engineer" />
+            </div>
+            <div class="field">
+              <label class="lbl req" for="employmentTypeField">Employment type</label>
+              <select id="employmentTypeField" name="employmentType" required>
+                <option value="">Please select...</option>
+                <option value="full_time">Full-time</option>
+                <option value="part_time">Part-time</option>
+                <option value="contract">Contract</option>
+                <option value="internship">Internship</option>
+                <option value="freelance">Freelance</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="lbl req" for="experienceLevelField">Experience level</label>
+              <select id="experienceLevelField" name="experienceLevel" required>
+                <option value="">Please select...</option>
+                <option value="entry">Entry level (0-2 years)</option>
+                <option value="mid">Mid level (3-5 years)</option>
+                <option value="senior">Senior (6-9 years)</option>
+                <option value="staff">Staff / Principal (10+ years)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="lbl" for="yearsExperienceField">Years of experience</label>
+              <input id="yearsExperienceField" name="yearsExperience" type="number" min="0" max="50" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="expectedSalaryField">Expected salary (USD)</label>
+              <input id="expectedSalaryField" name="expectedSalary" type="number" min="0" step="1000" />
+            </div>
+          </div>
+
+          <fieldset>
+            <legend>Work location preference</legend>
+            <div class="inline-radios" role="radiogroup" aria-label="Work location preference">
+              <label><input type="radio" name="workLocation" value="remote" /> Remote</label>
+              <label><input type="radio" name="workLocation" value="hybrid" /> Hybrid</label>
+              <label><input type="radio" name="workLocation" value="onsite" checked /> On-site</label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Notice period</legend>
+            <p class="hint" style="margin:0 0 6px 0">How soon could you start?</p>
+            <div class="inline-radios" role="radiogroup" aria-label="Notice period">
+              <label><input type="radio" name="noticePeriod" value="immediate" /> Immediately</label>
+              <label><input type="radio" name="noticePeriod" value="two_weeks" /> 2 weeks</label>
+              <label><input type="radio" name="noticePeriod" value="one_month" /> 1 month</label>
+              <label><input type="radio" name="noticePeriod" value="three_months" /> 3 months</label>
+            </div>
+          </fieldset>
+        </section>
+
+        <!-- ========================== SECTION 4: ADDRESS ========================== -->
+        <section class="card" aria-labelledby="sec-address">
+          <h2 id="sec-address">4. Address</h2>
+
+          <div class="grid">
+            <div class="field full">
+              <label class="lbl" for="addressLine1Field">Street address</label>
+              <input id="addressLine1Field" name="addressLine1" type="text" autocomplete="street-address" placeholder="123 Main St" />
+            </div>
+            <div class="field full">
+              <label class="lbl" for="addressLine2Field">Apartment, suite, or unit</label>
+              <input id="addressLine2Field" name="addressLine2" type="text" autocomplete="address-line2" placeholder="Apt 4B" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="cityField">City</label>
+              <input id="cityField" name="city" type="text" autocomplete="address-level2" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="stateField">State / region / province</label>
+              <input id="stateField" name="state" type="text" autocomplete="address-level1" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="postalCodeField">Postal code</label>
+              <input id="postalCodeField" name="postalCode" type="text" autocomplete="postal-code" pattern="[A-Za-z0-9\- ]{3,10}" />
+            </div>
+            <div class="field">
+              <label class="lbl req" for="countryField">Country</label>
+              <select id="countryField" name="country" autocomplete="country" required>
+                <option value="">Please select...</option>
+                <option value="us">United States</option>
+                <option value="uk">United Kingdom</option>
+                <option value="ca">Canada</option>
+                <option value="de">Germany</option>
+                <option value="in">India</option>
+                <option value="jp">Japan</option>
+                <option value="br">Brazil</option>
+                <option value="au">Australia</option>
+                <option value="fr" disabled>France (currently unavailable)</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 5: SCHEDULE ========================== -->
+        <section class="card" aria-labelledby="sec-schedule">
+          <h2 id="sec-schedule">5. Schedule &amp; availability</h2>
+
+          <div class="grid cols-3">
+            <div class="field">
+              <label class="lbl" for="dateOfBirthField">Date of birth</label>
+              <input id="dateOfBirthField" name="dateOfBirth" type="date" autocomplete="bday" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="preferredStartDateField">Preferred start date</label>
+              <input id="preferredStartDateField" name="preferredStartDate" type="date" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="preferredInterviewTimeField">Preferred interview time</label>
+              <input id="preferredInterviewTimeField" name="preferredInterviewTime" type="time" />
+            </div>
+          </div>
+
+          <fieldset>
+            <legend>Working hours overlap (UTC)</legend>
+            <p class="hint" style="margin:0 0 6px 0">Which hours are you typically available to collaborate?</p>
+            <div class="inline-radios" role="radiogroup" aria-label="Working hours overlap">
+              <label><input type="radio" name="hoursOverlap" value="morning_us" /> Morning (US time)</label>
+              <label><input type="radio" name="hoursOverlap" value="afternoon_us" /> Afternoon (US time)</label>
+              <label><input type="radio" name="hoursOverlap" value="evening_us" /> Evening (US time)</label>
+              <label><input type="radio" name="hoursOverlap" value="flexible" /> Flexible</label>
+            </div>
+          </fieldset>
+        </section>
+
+        <!-- ========================== SECTION 6: DYNAMIC CONDITIONAL ========================== -->
+        <section class="card" aria-labelledby="sec-dynamic">
+          <h2 id="sec-dynamic">6. Referral source <span class="badge">conditional</span></h2>
+          <p class="section-subtitle">Selecting "Other" reveals an extra text field. Changing the dropdown re-renders the extra field.</p>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl req" for="referralSourceField">How did you hear about us?</label>
+              <select id="referralSourceField" name="referralSource" required>
+                <option value="">Please select...</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="indeed">Indeed</option>
+                <option value="company_website">Company website</option>
+                <option value="friend">Friend or colleague</option>
+                <option value="conference">Conference</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="lbl" for="referrerNameField">Referrer name (if applicable)</label>
+              <input id="referrerNameField" name="referrerName" type="text" placeholder="e.g. Jane Doe" />
+            </div>
+          </div>
+
+          <div id="referralOtherContainer" class="hidden-section" aria-live="polite">
+            <div class="field">
+              <label class="lbl" for="referralOtherField">Please specify where you heard about us</label>
+              <input id="referralOtherField" name="referralOther" type="text" placeholder="A blog post, podcast, etc." />
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 7: SKILLS ========================== -->
+        <section class="card" aria-labelledby="sec-skills">
+          <h2 id="sec-skills">7. Skills &amp; technologies</h2>
+          <p class="section-subtitle">Check all that apply.</p>
+
+          <fieldset>
+            <legend>Frontend frameworks</legend>
+            <ul class="checkbox-list">
+              <li><label><input type="checkbox" name="frameworks" value="react" /> React</label></li>
+              <li><label><input type="checkbox" name="frameworks" value="vue" /> Vue</label></li>
+              <li><label><input type="checkbox" name="frameworks" value="svelte" /> Svelte</label></li>
+              <li><label><input type="checkbox" name="frameworks" value="angular" /> Angular</label></li>
+              <li><label><input type="checkbox" name="frameworks" value="solid" /> Solid</label></li>
+            </ul>
+          </fieldset>
+
+          <fieldset>
+            <legend>Backend languages</legend>
+            <ul class="checkbox-list">
+              <li><label><input type="checkbox" name="backend" value="node" /> Node.js</label></li>
+              <li><label><input type="checkbox" name="backend" value="python" /> Python</label></li>
+              <li><label><input type="checkbox" name="backend" value="go" /> Go</label></li>
+              <li><label><input type="checkbox" name="backend" value="rust" /> Rust</label></li>
+              <li><label><input type="checkbox" name="backend" value="java" /> Java</label></li>
+            </ul>
+          </fieldset>
+
+          <fieldset>
+            <legend>Cloud platforms</legend>
+            <ul class="checkbox-list">
+              <li><label><input type="checkbox" name="cloud" value="aws" /> AWS</label></li>
+              <li><label><input type="checkbox" name="cloud" value="gcp" /> Google Cloud</label></li>
+              <li><label><input type="checkbox" name="cloud" value="azure" /> Azure</label></li>
+              <li><label><input type="checkbox" name="cloud" value="fly" /> Fly.io</label></li>
+            </ul>
+          </fieldset>
+        </section>
+
+        <!-- ========================== SECTION 8: PREFERENCES ========================== -->
+        <section class="card" aria-labelledby="sec-prefs">
+          <h2 id="sec-prefs">8. Communication preferences</h2>
+
+          <fieldset>
+            <legend>Preferred contact method</legend>
+            <div class="inline-radios" role="radiogroup" aria-label="Preferred contact method">
+              <label><input type="radio" name="contactMethod" value="email" checked /> Email</label>
+              <label><input type="radio" name="contactMethod" value="phone" /> Phone call</label>
+              <label><input type="radio" name="contactMethod" value="sms" /> SMS</label>
+              <label><input type="radio" name="contactMethod" value="none" /> No contact</label>
+            </div>
+          </fieldset>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl" for="preferredLanguageField">Preferred language</label>
+              <select id="preferredLanguageField" name="preferredLanguage">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="ja">Japanese</option>
+                <option value="zh">Chinese (Simplified)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="lbl" for="timezoneField">Time zone</label>
+              <select id="timezoneField" name="timezone">
+                <option value="utc-8">UTC-8 (Pacific)</option>
+                <option value="utc-5">UTC-5 (Eastern)</option>
+                <option value="utc+0" selected>UTC+0 (London)</option>
+                <option value="utc+1">UTC+1 (Berlin)</option>
+                <option value="utc+5:30">UTC+5:30 (Mumbai)</option>
+                <option value="utc+9">UTC+9 (Tokyo)</option>
+              </select>
+            </div>
+          </div>
+
+          <ul class="checkbox-list" style="margin-top:10px">
+            <li><label><input type="checkbox" name="newsletter" value="weekly" /> Send me the weekly engineering newsletter</label></li>
+            <li><label><input type="checkbox" name="events" value="yes" /> Notify me about upcoming hiring events</label></li>
+            <li><label><input type="checkbox" name="anonymousProfile" value="yes" /> Allow my profile to be shared anonymously with hiring managers</label></li>
+          </ul>
+        </section>
+
+        <!-- ========================== SECTION 9: SEARCH & DATES ========================== -->
+        <section class="card" aria-labelledby="sec-search">
+          <h2 id="sec-search">9. Search &amp; filters</h2>
+          <p class="section-subtitle">A different label style for variety.</p>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl" for="searchBoxField">Search for a team</label>
+              <input id="searchBoxField" name="searchBox" type="search" placeholder="Search teams..." />
+            </div>
+            <div class="field">
+              <label class="lbl" for="minSalaryField">Minimum salary</label>
+              <input id="minSalaryField" name="minSalary" type="number" min="0" step="1000" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="maxSalaryField">Maximum salary</label>
+              <input id="maxSalaryField" name="maxSalary" type="number" min="0" step="1000" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="remoteOkField">Open to remote?</label>
+              <select id="remoteOkField" name="remoteOk">
+                <option value="any">Any</option>
+                <option value="yes">Yes, remote only</option>
+                <option value="no">No, on-site only</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 10: TERMS ========================== -->
+        <section class="card" aria-labelledby="sec-terms">
+          <h2 id="sec-terms">10. Legal &amp; consent</h2>
+
+          <div class="field">
+            <label style="display:flex; gap:8px; align-items:flex-start">
+              <input type="checkbox" id="termsField" name="terms" required style="margin-top:4px" />
+              <span>
+                I have read and agree to the
+                <a href="#" onclick="event.preventDefault()">terms of service</a>
+                and the
+                <a href="#" onclick="event.preventDefault()">privacy policy</a>. <span style="color:var(--danger)">*</span>
+              </span>
+            </label>
+            <div class="error-msg" id="termsError" aria-live="polite"></div>
+          </div>
+
+          <div class="field" style="margin-top:10px">
+            <label style="display:flex; gap:8px; align-items:flex-start">
+              <input type="checkbox" id="ageConfirmField" name="ageConfirm" required style="margin-top:4px" />
+              <span>I confirm I am at least 18 years old. <span style="color:var(--danger)">*</span></span>
+            </label>
+            <div class="error-msg" id="ageError" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 11: EDGE CASES ========================== -->
+        <section class="card" aria-labelledby="sec-edges">
+          <h2 id="sec-edges">11. Edge cases <span class="badge">do not touch</span></h2>
+          <p class="section-subtitle">These fields simulate sensitive, restricted, or already-completed inputs.</p>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl" for="alreadyFilledField">Already filled (locked)</label>
+              <input id="alreadyFilledField" name="alreadyFilled" type="text" value="pre-filled by user" />
+              <span class="hint">Should NOT be overwritten by the bot.</span>
+            </div>
+            <div class="field">
+              <label class="lbl" for="readonlyField">Read-only (admin-set)</label>
+              <input id="readonlyField" name="readonlyField" type="text" value="READONLY" readonly />
+              <span class="hint">Readonly attribute, not user-editable.</span>
+            </div>
+            <div class="field">
+              <label class="lbl" for="disabledField">Disabled (legacy)</label>
+              <input id="disabledField" name="disabledField" type="text" value="DISABLED" disabled />
+              <span class="hint">Disabled attribute.</span>
+            </div>
+            <div class="field">
+              <label class="lbl" for="hiddenField">Hidden (display:none)</label>
+              <input id="hiddenField" name="hiddenField" type="text" value="HIDDEN" style="display:none" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="visHiddenField">Visibility: hidden</label>
+              <input id="visHiddenField" name="visHiddenField" type="text" value="VIS-HIDDEN" style="visibility:hidden" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="zeroOpacityField">Opacity: 0</label>
+              <input id="zeroOpacityField" name="zeroOpacityField" type="text" value="OPACITY" style="opacity:0" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="ariaHiddenField" aria-hidden="true">aria-hidden</label>
+              <input id="ariaHiddenField" name="ariaHiddenField" type="text" aria-hidden="true" value="ARIA-HIDDEN" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="resumeField">Upload resume (file)</label>
+              <input id="resumeField" name="resume" type="file" accept=".pdf,.doc,.docx" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="captchaField">Verification code (bot challenge)</label>
+              <input id="captchaField" name="captcha" type="text" placeholder="Type the characters you see" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="creditCardField">Credit card number</label>
+              <input id="creditCardField" name="creditCardNumber" type="text" autocomplete="cc-number" placeholder="0000 0000 0000 0000" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="cvvField">CVV</label>
+              <input id="cvvField" name="cvv" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="123" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="otpField">One-time password</label>
+              <input id="otpField" name="otp" type="text" autocomplete="one-time-code" placeholder="6-digit code" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="ibanField">IBAN (bank account)</label>
+              <input id="ibanField" name="iban" type="text" autocomplete="off" placeholder="DE00 0000 0000 0000 0000 00" />
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 12: WHITESPACE & WEIRD LABELS ========================== -->
+        <section class="card" aria-labelledby="sec-weird">
+          <h2 id="sec-weird">12. Whitespace &amp; odd label patterns</h2>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl" for="trailingSpaceField">Trim me   &nbsp;&nbsp;&nbsp; </label>
+              <input id="trailingSpaceField" name="trailingSpace" type="text" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="punctField">Field, with: punctuation! everywhere?</label>
+              <input id="punctField" name="punctField" type="text" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="longLabelField">This is a deliberately verbose descriptive label that goes on and on about the kind of input expected, with multiple clauses and parenthetical asides (per spec section 9, edge cases)</label>
+              <input id="longLabelField" name="longLabel" type="text" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="emptyLabelField"></label>
+              <input id="emptyLabelField" name="emptyLabel" type="text" placeholder="No visible label, placeholder only" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="misleadingPlaceholderField">Phone</label>
+              <input id="misleadingPlaceholderField" name="misleadingPlaceholder" type="email" placeholder="looks like a phone, actually an email" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="similarAField">Email (work)</label>
+              <input id="similarAField" name="similarA" type="email" autocomplete="email" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="similarBField">Email (personal)</label>
+              <input id="similarBField" name="similarB" type="email" autocomplete="email" />
+            </div>
+            <div class="field full">
+              <span id="ariaLabelledByLabel">Field with aria-labelledby (this text is the label)</span>
+              <input id="ariaLabelledByField" name="ariaLabelledBy" type="text" aria-labelledby="ariaLabelledByLabel" />
+            </div>
+            <div class="field full">
+              <input id="ariaOnlyField" name="ariaOnly" type="text" aria-label="Hidden aria-only label" />
+              <span class="hint">No visible label. The aria-label is the only label.</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 13: ARIA-LABEL + NAME MISMATCH ========================== -->
+        <section class="card" aria-labelledby="sec-mismatch">
+          <h2 id="sec-mismatch">13. Name &lt;&gt; label mismatches</h2>
+          <p class="section-subtitle">A real form may have a name like <code>usr_addr_1</code> while the label says "Where do you live?". These fields test that.</p>
+
+          <div class="grid">
+            <div class="field">
+              <label class="lbl" for="mismatchAddressField">Where do you live?</label>
+              <input id="mismatchAddressField" name="usr_addr_1" type="text" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="mismatchNameField">What should we call you?</label>
+              <input id="mismatchNameField" name="usr_nick_99" type="text" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="mismatchPhoneField">Best number to reach you on</label>
+              <input id="mismatchPhoneField" name="caller_line" type="tel" />
+            </div>
+            <div class="field">
+              <label class="lbl" for="mismatchCityField">Your nearest metro area</label>
+              <input id="mismatchCityField" name="usr_loc_city" type="text" autocomplete="address-level2" />
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== SECTION 14: ACTIONS ========================== -->
+        <section class="card" aria-labelledby="sec-actions">
+          <h2 id="sec-actions">14. Final step</h2>
+          <p class="section-subtitle">These buttons do not submit to any server. The "Submit" button only shows a local success message.</p>
+
+          <div class="actions">
+            <button type="reset" id="resetFormBtn">Reset form</button>
+            <button type="button" id="submitApplicationBtn" class="primary">Submit application</button>
+          </div>
+          <div class="ok-banner" id="okBanner" role="status">
+            <strong>Application ready for review.</strong>
+            <span> This is a local-only confirmation. Nothing was sent over the network.</span>
+          </div>
+        </section>
+      </form>
+    </div>
+
+    <script>
+      (function () {
+        // -------- Conditional "Other" referral field --------
+        var referralSelect = document.getElementById('referralSourceField');
+        var otherContainer = document.getElementById('referralOtherContainer');
+        var otherInput = document.getElementById('referralOtherField');
+        var referrerName = document.getElementById('referrerNameField');
+
+        function updateReferralVisibility() {
+          if (!referralSelect) return;
+          var v = referralSelect.value;
+          if (v === 'other') {
+            otherContainer.classList.add('visible');
+          } else {
+            otherContainer.classList.remove('visible');
+            // Simulate re-render by detaching and re-attaching the input
+            // (the field's stableId in the detector may change, exercising re-resolve)
+            if (otherInput && otherInput.parentNode) {
+              var clone = otherInput.cloneNode(false);
+              clone.value = otherInput.value;
+              otherInput.parentNode.replaceChild(clone, otherInput);
+              otherInput = clone;
+            }
+          }
+          // The "Referrer name" field is required only when 'friend' is selected
+          if (referrerName) {
+            if (v === 'friend') {
+              referrerName.setAttribute('required', '');
+            } else {
+              referrerName.removeAttribute('required');
+            }
+          }
+        }
+        if (referralSelect) {
+          referralSelect.addEventListener('change', updateReferralVisibility);
+          updateReferralVisibility();
+        }
+
+        // -------- Reset button --------
+        var form = document.getElementById('complex-form');
+        var resetBtn = document.getElementById('resetFormBtn');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', function () {
+            // setTimeout so the reset's actual event runs first
+            setTimeout(function () {
+              updateReferralVisibility();
+              document.getElementById('okBanner').classList.remove('visible');
+              document.getElementById('termsError').textContent = '';
+              document.getElementById('ageError').textContent = '';
+            }, 0);
+          });
+        }
+
+        // -------- Submit (local only) --------
+        var submitBtn = document.getElementById('submitApplicationBtn');
+        var okBanner = document.getElementById('okBanner');
+        var termsError = document.getElementById('termsError');
+        var ageError = document.getElementById('ageError');
+        if (submitBtn) {
+          submitBtn.addEventListener('click', function () {
+            var t = document.getElementById('termsField');
+            var a = document.getElementById('ageConfirmField');
+            var ok = true;
+            if (!t.checked) {
+              termsError.textContent = 'You must accept the terms to continue.';
+              ok = false;
+            } else {
+              termsError.textContent = '';
+            }
+            if (!a.checked) {
+              ageError.textContent = 'You must confirm your age.';
+              ok = false;
+            } else {
+              ageError.textContent = '';
+            }
+            if (ok) {
+              okBanner.classList.add('visible');
+              okBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

@@ -9,7 +9,7 @@
   <body>
     <header>
       <h1>Adaptive Form Agent</h1>
-      <p class="subtitle">Structured form view (no AI yet)</p>
+      <p class="subtitle">JSON profile form filler</p>
     </header>
 
     <section class="actions">
@@ -37,70 +37,38 @@
       <div id="forms-container" class="forms-list"></div>
     </section>
 
-    <section class="persona">
-      <h2>Persona</h2>
-      <div class="persona-actions">
-        <button id="persona-reload-btn" type="button">Reload</button>
-        <button id="persona-examples-btn" type="button">Load examples</button>
-        <button id="persona-clear-btn" type="button" class="danger">Clear all</button>
+    <section class="profiles">
+      <h2>JSON profile</h2>
+      <div class="profile-row">
+        <label for="profile-select" class="label">Profile:</label>
+        <select id="profile-select"></select>
+        <button id="profile-reload-btn" type="button" class="secondary">Reload</button>
       </div>
-      <div id="persona-status" class="persona-status"></div>
-
-      <div class="persona-section">
-        <h3>Identity</h3>
-        <div id="persona-identity" class="persona-identity"></div>
+      <div class="profile-status" id="profile-status">Loading profiles...</div>
+      <div class="profile-actions">
+        <label class="file-button">
+          <input id="profile-file-input" type="file" accept="application/json,.json" hidden />
+          <span>Load JSON file</span>
+        </label>
+        <button id="profile-save-btn" type="button" class="secondary">Save current</button>
+        <button id="profile-delete-btn" type="button" class="danger">Delete</button>
       </div>
+    </section>
 
-      <div class="persona-section">
-        <h3>Facts</h3>
-        <div class="persona-add">
-          <input id="fact-id" type="text" placeholder="id (e.g. fact.electronics.smartphone)" />
-          <input id="fact-category" type="text" placeholder="category" />
-          <input id="fact-subject" type="text" placeholder="subject" />
-          <input id="fact-predicate" type="text" placeholder="predicate" />
-          <select id="fact-status">
-            <option value="true">true</option>
-            <option value="false">false</option>
-            <option value="unknown">unknown</option>
-          </select>
-          <button id="fact-add-btn" type="button">Add fact</button>
-        </div>
-        <ul id="persona-facts" class="persona-list"></ul>
+    <section class="bot">
+      <h2>Bot</h2>
+      <div class="bot-actions">
+        <button id="bot-start-btn" type="button" class="primary">START BOT</button>
+        <button id="bot-stop-btn" type="button" class="danger" disabled>STOP BOT</button>
       </div>
-
-      <div class="persona-section">
-        <h3>Plans</h3>
-        <div class="persona-add">
-          <input id="plan-id" type="text" placeholder="id (e.g. plan.computing.pc.buy)" />
-          <input id="plan-category" type="text" placeholder="category" />
-          <input id="plan-subject" type="text" placeholder="subject" />
-          <input id="plan-predicate" type="text" placeholder="predicate" />
-          <select id="plan-status">
-            <option value="active">active</option>
-            <option value="completed">completed</option>
-            <option value="abandoned">abandoned</option>
-            <option value="unknown">unknown</option>
-          </select>
-          <select id="plan-horizon">
-            <option value="immediate">immediate</option>
-            <option value="short-term">short-term</option>
-            <option value="medium-term" selected>medium-term</option>
-            <option value="long-term">long-term</option>
-            <option value="no-longer">no-longer</option>
-          </select>
-          <button id="plan-add-btn" type="button">Add plan</button>
-        </div>
-        <ul id="persona-plans" class="persona-list"></ul>
-      </div>
-
-      <div class="persona-section">
-        <h3>Preferences</h3>
-        <ul id="persona-preferences" class="persona-list"></ul>
-      </div>
-
-      <div class="persona-section">
-        <h3>Experiences</h3>
-        <ul id="persona-experiences" class="persona-list"></ul>
+      <div class="bot-status" id="bot-status">Idle.</div>
+      <div class="bot-row"><span class="label">Current field:</span><span id="bot-current">-</span></div>
+      <div class="bot-row"><span class="label">Reason:</span><span id="bot-reason">-</span></div>
+      <div class="bot-row counters">
+        <span><span class="label">Completed:</span> <span id="bot-completed">0</span></span>
+        <span><span class="label">Skipped:</span> <span id="bot-skipped">0</span></span>
+        <span><span class="label">Failed:</span> <span id="bot-failed">0</span></span>
+        <span><span class="label">Total:</span> <span id="bot-total">0</span></span>
       </div>
     </section>
 
