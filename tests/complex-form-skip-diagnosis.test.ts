@@ -158,7 +158,7 @@ interface FieldDiag {
   category?: SkipCategory;
 }
 
-function diagnoseFields(fields: FormField[], profile: JsonProfile): FieldDiag[] {
+async function diagnoseFields(fields: FormField[], profile: JsonProfile): Promise<FieldDiag[]> {
   const diagnostics: FieldDiag[] = [];
   for (const field of fields) {
     const fieldLabel = field.label || field.ariaLabel || field.placeholder || field.name || field.id || field.stableId;
@@ -177,7 +177,7 @@ function diagnoseFields(fields: FormField[], profile: JsonProfile): FieldDiag[] 
       });
       continue;
     }
-    const plan = planField(field, profile);
+    const plan = await planField(field, profile);
     if (!plan.ok) {
       const detail = plan.detail ? ` (${plan.detail})` : '';
       diagnostics.push({
@@ -330,7 +330,7 @@ test('complex-form diagnosis: minimal profile', async () => {
   const allFields: FormField[] = [];
   for (const group of page.forms) for (const f of group.fields) allFields.push(f);
 
-  const diagnostics = diagnoseFields(allFields, MINIMAL_PROFILE);
+  const diagnostics = await diagnoseFields(allFields, MINIMAL_PROFILE);
   printReport('MINIMAL PROFILE (integration-like)', diagnostics);
 
   const skipped = diagnostics.filter(d => d.outcome === 'skipped');
@@ -349,7 +349,7 @@ test('complex-form diagnosis: comprehensive profile', async () => {
   const allFields: FormField[] = [];
   for (const group of page.forms) for (const f of group.fields) allFields.push(f);
 
-  const diagnostics = diagnoseFields(allFields, COMPREHENSIVE_PROFILE);
+  const diagnostics = await diagnoseFields(allFields, COMPREHENSIVE_PROFILE);
   printReport('COMPREHENSIVE PROFILE', diagnostics);
 
   const skipped = diagnostics.filter(d => d.outcome === 'skipped');

@@ -17,11 +17,16 @@
 import {
   SCAN_PAGE_MESSAGE,
   INTERACT_MESSAGE,
+  GET_VISUAL_CONTEXT_MESSAGE,
   type ScanPageMessage,
   type InteractMessage,
+  type GetVisualContextMessage,
+  type FormPage,
+  type InteractionRequest,
+  type InteractionResult,
+  type FieldVisualContext,
+  type FormField,
 } from '../shared/types';
-import type { FormField, FormPage } from '../shared/types';
-import type { InteractionRequest, InteractionResult } from '../shared/interaction';
 import type { JsonProfile, ProfileEntry } from '../shared/profile';
 import {
   BOT_STATUS,
@@ -30,6 +35,11 @@ import {
   type BotStatus,
 } from '../shared/profile-messages';
 import { planField, type PlanResult } from './agent';
+import { discoverNextAction } from './field-discovery';
+import type { LocalLLMProvider } from './llm-provider';
+import type { VisionProvider } from './vision-provider';
+import type { OCRProvider } from './ocr-provider';
+import { captureCroppedScreenshot } from './screenshot';
 
 export interface ContentBridge {
   /** Force the content script to re-scan and return the latest FormPage. */
@@ -39,6 +49,11 @@ export interface ContentBridge {
     tabId: number,
     request: InteractionRequest,
   ): Promise<{ ok: boolean; result?: InteractionResult; error?: string }>;
+  /** Lazily capture visual context for an unresolved field. */
+  getVisualContext(
+    tabId: number,
+    stableId: string,
+  ): Promise<{ ok: boolean; result?: FieldVisualContext; error?: string }>;
 }
 
 interface RuntimeContentBridgeOptions {
@@ -69,6 +84,14 @@ export function createChromeContentBridge(
       const msg: InteractMessage = { type: INTERACT_MESSAGE, payload: request };
       const r = (await send(tabId, msg)) as
         | { ok: boolean; result?: InteractionResult; error?: string }
+        | undefined;
+      if (!r) return { ok: false, error: 'no_response' };
+      return r;
+    },
+    async getVisualContext(tabId, stableId) {
+      const msg: GetVisualContextMessage = { type: GET_VISUAL_CONTEXT_MESSAGE, stableId };
+      const r = (await send(tabId, msg)) as
+        | { ok: boolean; result?: FieldVisualContext; error?: string }
         | undefined;
       if (!r) return { ok: false, error: 'no_response' };
       return r;
@@ -109,6 +132,9 @@ export interface BotRunOptions {
    * of calling bridge.scan for the first tick (useful for tests).
    */
   initialPage?: FormPage | null;
+  llmProvider?: LocalLLMProvider;
+  visionProvider?: VisionProvider;
+  ocrProvider?: OCRProvider;
 }
 
 export interface BotRunHandle {
@@ -128,6 +154,9 @@ export class Bot {
   private readonly bridge: ContentBridge;
   private readonly pushStatus: (snapshot: BotStatusSnapshot) => void;
   private readonly clock: () => Date;
+  private readonly llmProvider?: LocalLLMProvider;
+  private readonly visionProvider?: VisionProvider;
+  private readonly ocrProvider?: OCRProvider;
 
   private status: BotStatus = 'idle';
   private counters: BotCounters = emptyCounters();
@@ -145,6 +174,9 @@ export class Bot {
     this.bridge = opts.bridge;
     this.pushStatus = opts.pushStatus;
     this.clock = opts.clock ?? (() => new Date());
+    this.llmProvider = opts.llmProvider;
+    this.visionProvider = opts.visionProvider;
+    this.ocrProvider = opts.ocrProvider;
     this.donePromise = new Promise<BotStatusSnapshot>((resolve) => {
       this.resolveDone = resolve;
     });
@@ -261,9 +293,44 @@ export class Bot {
     return false;
   }
 
+  /**
+   * Discovery-driven advance: when the inner field loop made no progress,
+   * look for a deterministic "advance" action (Next/Continue for multi-step
+   * forms, or Add X for an under-filled section) and click it. Returns
+   * true iff an advance action was actually performed and a new scan
+   * should reveal more fields.
+   */
+  private async tryAdvance(
+    page: FormPage,
+    clickedActionStableIds: Set<string>,
+  ): Promise<boolean> {
+    const action = discoverNextAction(
+      page,
+      this.profile.profile,
+      clickedActionStableIds,
+    );
+    if (!action) return false;
+
+    clickedActionStableIds.add(action.stableId);
+    this.currentField = {
+      stableId: action.stableId,
+      label: page.forms
+        .flatMap((g) => g.submitControls)
+        .find((s) => s.stableId === action.stableId)?.text ?? action.stableId,
+      reason: action.reason,
+    };
+    this.emit();
+    const res = await this.bridge.interact(this.tabId, {
+      kind: 'click-button',
+      stableId: action.stableId,
+    });
+    return !!(res.ok && res.result?.success === true);
+  }
+
   private async loop(): Promise<void> {
     const attemptedStableIds = new Set<string>();
     const skippedStableIds = new Set<string>();
+    const clickedActionStableIds = new Set<string>();
     let progress = true;
 
     while (progress && !this.stopRequested) {
@@ -318,7 +385,27 @@ export class Bot {
           continue;
         }
 
-        const plan: PlanResult = planField(field, effectiveProfile);
+        const plan: PlanResult = await planField(
+          field,
+          effectiveProfile,
+          this.llmProvider,
+          this.visionProvider,
+          this.ocrProvider,
+          async () => {
+            const res = await this.bridge.getVisualContext(this.tabId, field.stableId);
+            if (res.ok && res.result) {
+              const ctx = res.result;
+              if (ctx.visibility !== 'hidden' && ctx.visibility !== 'outside-viewport' && ctx.boundingBox) {
+                const screenshot = await captureCroppedScreenshot(this.tabId, ctx.boundingBox);
+                if (screenshot) {
+                  ctx.screenshot = screenshot;
+                }
+              }
+              return ctx;
+            }
+            return undefined;
+          }
+        );
         if (!plan.ok) {
           skippedStableIds.add(field.stableId);
           this.currentField = {
@@ -363,6 +450,9 @@ export class Bot {
 
         if (!progress && !this.stopRequested) {
           progress = await this.tryAddAnother(page, fields);
+          if (!progress) {
+            progress = await this.tryAdvance(page, clickedActionStableIds);
+          }
         }
       }
 
@@ -444,6 +534,9 @@ export interface BotRunnerOptions {
   loadProfile: (id: string) => Promise<ProfileEntry | null>;
   getActiveTabId?: () => Promise<number | null>;
   clock?: () => Date;
+  llmProvider?: LocalLLMProvider;
+  visionProvider?: VisionProvider;
+  ocrProvider?: OCRProvider;
 }
 
 export class BotRunner {
@@ -452,6 +545,9 @@ export class BotRunner {
   private readonly loadProfile: (id: string) => Promise<ProfileEntry | null>;
   private readonly getActiveTabId: () => Promise<number | null>;
   private readonly clock: () => Date;
+  private readonly llmProvider?: LocalLLMProvider;
+  private readonly visionProvider?: VisionProvider;
+  private readonly ocrProvider?: OCRProvider;
 
   private running: Map<number, Bot> = new Map();
 
@@ -461,6 +557,9 @@ export class BotRunner {
     this.loadProfile = opts.loadProfile;
     this.getActiveTabId = opts.getActiveTabId ?? defaultGetActiveTabId;
     this.clock = opts.clock ?? (() => new Date());
+    this.llmProvider = opts.llmProvider;
+    this.visionProvider = opts.visionProvider;
+    this.ocrProvider = opts.ocrProvider;
   }
 
   async start(args: { tabId?: number; profileId: string }): Promise<BotStatusSnapshot> {
@@ -483,6 +582,9 @@ export class BotRunner {
       bridge: this.bridge,
       pushStatus: (snapshot) => this.push.sendToPopup({ type: BOT_STATUS, snapshot }),
       clock: this.clock,
+      llmProvider: this.llmProvider,
+      visionProvider: this.visionProvider,
+      ocrProvider: this.ocrProvider,
     });
     this.running.set(tabId, bot);
     // Fire and forget: status updates flow via pushStatus, completion

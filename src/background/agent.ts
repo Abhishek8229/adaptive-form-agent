@@ -1,3 +1,9 @@
+import type { LocalLLMProvider } from './llm-provider';
+import type { VisionProvider } from './vision-provider';
+import type { OCRProvider } from './ocr-provider';
+import { associateVisualQuestion } from './visual-association';
+import { inferQuestionIntent } from './question-intent';
+import type { FieldVisualContext } from '../shared/types';
 /**
  * Agent planner: pure functions that decide "what does this field mean?"
  * and "which JSON value answers it?". No DOM access. The actual
@@ -265,10 +271,15 @@ function pickKeysByLabelSynonyms(profile: JsonProfile, field: FormField): string
   return matched;
 }
 
-export function planField(
+
+export async function planField(
   field: FormField,
   profile: JsonProfile,
-): PlanResult {
+  llmProvider?: LocalLLMProvider,
+  visionProvider?: VisionProvider,
+  ocrProvider?: OCRProvider,
+  getVisualContext?: () => Promise<FieldVisualContext | undefined>,
+): Promise<PlanResult> {
   if (field.disabled || field.readOnly) {
     return { ok: false, reason: 'no_reliable_label', detail: 'field is disabled or readonly' };
   }
@@ -279,16 +290,11 @@ export function planField(
     return { ok: false, reason: 'no_reliable_label', detail: 'sensitive or protected field' };
   }
 
-  // Collect candidate profile keys in priority order
   const candidates: Array<{ key: string, match: FieldPlan['match'] }> = [];
-
   const addCandidate = (key: string, match: FieldPlan['match']) => {
-    if (!candidates.find((c) => c.key === key)) {
-      candidates.push({ key, match });
-    }
+    if (!candidates.find((c) => c.key === key)) candidates.push({ key, match });
   };
 
-  // 1. autocomplete
   const acHint = hintFromAutocomplete(field.autocomplete);
   if (acHint) {
     const hints = HINT_TO_PROFILE_HINTS[acHint] ?? [];
@@ -296,50 +302,129 @@ export function planField(
     if (k) addCandidate(k, 'autocomplete');
   }
 
-  // 2. semanticHint
   if (field.semanticHint && field.semanticHint !== 'unknown') {
     const hints = HINT_TO_PROFILE_HINTS[field.semanticHint] ?? [];
     const k = pickKeyByProfileHints(profile, hints);
     if (k) addCandidate(k, 'semantic');
   }
 
-  // 3. Synonyms
   const synKeys = pickKeysByLabelSynonyms(profile, field);
   for (const k of synKeys) addCandidate(k, 'label');
 
-  // 4. label / ariaLabel / placeholder / name / id fuzzy match
   const fuzzyKeys = pickKeyByLabelFuzzy(profile, field);
   for (const k of fuzzyKeys) addCandidate(k, 'label');
 
-  if (candidates.length === 0) {
-    if ((field.controlType === 'input-checkbox' || field.controlType === 'custom-checkbox') && field.required) {
-      const req: CheckboxRequest = { stableId: field.stableId, kind: 'check' };
-      return {
-        ok: true,
-        profileKey: '__consent__',
-        value: true,
-        request: req,
-        match: 'semantic',
-      };
-    }
-    return { ok: false, reason: 'no_profile_match' };
+  const intent = inferQuestionIntent(field.semanticContext || field.label);
+  if (intent) {
+    const k = pickKeyByProfileHints(profile, [intent]);
+    if (k) addCandidate(k, 'semantic');
   }
 
-  // Try candidates until one successfully yields an interaction
   let lastSkip: FieldSkip | null = null;
   for (const { key, match } of candidates) {
     const value = profile[key];
     const res = valueToInteraction(field, key, value, match);
-    if (res.ok) {
-      return res;
-    }
+    if (res.ok) return res;
     lastSkip = res;
   }
 
-  return lastSkip ?? { ok: false, reason: 'no_profile_match' };
-}
+  if (llmProvider) {
+    const candidateKeys = Object.keys(profile);
+    const llmRes = await llmProvider.matchProfileKey({
+      semanticContext: field.semanticContext || field.label,
+      controlType: field.controlType,
+      questionIntent: intent || undefined,
+      candidateKeys,
+    });
+    
+    if (llmRes.profileKey && llmRes.confidence >= 0.8 && candidateKeys.includes(llmRes.profileKey)) {
+      const value = profile[llmRes.profileKey];
+      const res = valueToInteraction(field, llmRes.profileKey, value, 'semantic');
+      if (res.ok) return res;
+      lastSkip = res;
+    }
+  }
 
-// ---------- valueToInteraction ----------
+  let visualCtx: FieldVisualContext | undefined;
+  let visualCtxAttempted = false;
+  const ensureVisualContext = async () => {
+    if (!visualCtxAttempted && getVisualContext) {
+      visualCtxAttempted = true;
+      visualCtx = await getVisualContext();
+    }
+  };
+
+  if (ocrProvider) {
+    await ensureVisualContext();
+    if (visualCtx?.screenshot) {
+      const ocrRes = await ocrProvider.extractText({
+        screenshot: visualCtx.screenshot.dataUrl,
+        nearbyText: visualCtx.nearbyText,
+      });
+
+      let targetText = ocrRes.text;
+      let targetConfidence = ocrRes.confidence;
+
+      if (ocrRes.regions && ocrRes.regions.length > 0 && visualCtx.boundingBox && visualCtx.screenshot.cropOffset) {
+        const visualQuestion = associateVisualQuestion(
+          ocrRes.regions,
+          visualCtx.boundingBox,
+          visualCtx.screenshot.cropOffset
+        );
+        if (visualQuestion) {
+          targetText = visualQuestion;
+          targetConfidence = 1;
+        }
+      }
+
+      if (targetText && targetConfidence >= 0.5) {
+        let matchedKey: string | null = null;
+        let matchKind: FieldPlan['match'] = 'semantic';
+        
+        const ocrIntent = inferQuestionIntent(targetText);
+        if (ocrIntent) {
+          matchedKey = pickKeyByProfileHints(profile, [ocrIntent]);
+        }
+        
+        if (!matchedKey) {
+          const pseudoField = { ...field, label: targetText, ariaLabel: '', placeholder: '', name: '', id: '' };
+          const fuzzyMatched = pickKeyByLabelFuzzy(profile, pseudoField);
+          if (fuzzyMatched.length > 0) {
+            matchedKey = fuzzyMatched[0];
+            matchKind = 'label';
+          }
+        }
+
+        if (matchedKey) {
+          const value = profile[matchedKey];
+          const res = valueToInteraction(field, matchedKey, value, matchKind);
+          if (res.ok) return res;
+          lastSkip = res;
+        }
+      }
+    }
+  }
+
+  if (visionProvider) {
+    await ensureVisualContext();
+    console.log('VISION PROVIDER', visualCtx);
+    if (visualCtx?.screenshot) {
+      const candidateKeys = Object.keys(profile);
+      const visionRes = await visionProvider.analyzeField({
+        screenshot: visualCtx.screenshot,
+        nearbyText: visualCtx.nearbyText,
+        candidateKeys, semanticContext: field.semanticContext, controlType: field.controlType });
+      if (visionRes.profileKey && visionRes.confidence >= 0.8 && candidateKeys.includes(visionRes.profileKey)) {
+        const value = profile[visionRes.profileKey];
+        const res = valueToInteraction(field, visionRes.profileKey, value, 'semantic');
+        if (res.ok) return res;
+        lastSkip = res;
+      }
+    }
+  }
+
+  return lastSkip ?? { ok: false, reason: 'no_reliable_label' };
+}
 
 function findSelectOptionFuzzy(options: FormOption[], wanted: string): FormOption | null {
   const w = wanted.trim().toLowerCase();

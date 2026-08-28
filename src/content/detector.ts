@@ -11,6 +11,7 @@ import type {
   FormSemanticHint,
   FormSubmitControl,
   SubmitTarget,
+  FieldVisualContext,
 } from '../shared/types';
 
 const SUPPORTED_INPUT_TYPES = new Set([
@@ -86,7 +87,26 @@ function isElementVisible(el: Element): boolean {
   return true;
 }
 
-function findLabelText(el: FormElement, controlId: string): string {
+function extractSemanticContext(el: FormElement, controlId: string, controlName: string): string {
+  // 1. explicit <label for="...">
+  if (controlId) {
+    const explicit = document.querySelector(`label[for="${cssEscape(controlId)}"]`);
+    if (explicit) {
+      const text = (explicit.textContent ?? '').trim();
+      if (text) return text;
+    }
+  }
+
+  // 2. wrapping <label>
+  let parent = el.parentElement;
+  while (parent) {
+    if (parent.tagName === 'LABEL') {
+      const text = (parent.textContent ?? '').trim();
+      if (text) return text;
+    }
+    parent = parent.parentElement;
+  }
+
   const labelEl = el as unknown as { labels?: HTMLCollectionOf<HTMLLabelElement> | null };
   if (labelEl.labels && labelEl.labels.length > 0) {
     const text = Array.from(labelEl.labels)
@@ -96,40 +116,61 @@ function findLabelText(el: FormElement, controlId: string): string {
     if (text) return text;
   }
 
+  // 3. aria-labelledby
   const ariaLabelledBy = el.getAttribute('aria-labelledby');
   if (ariaLabelledBy) {
     const refs = ariaLabelledBy
       .split(/\s+/)
-      .map((id) => document.getElementById(id))
+      .map((refId) => document.getElementById(refId))
       .filter((n): n is HTMLElement => n !== null);
     const text = refs.map((r) => (r.textContent ?? '').trim()).join(' ');
     if (text) return text;
   }
 
-  if (el.parentElement && el.parentElement.tagName === 'LABEL') {
-    return (el.parentElement.textContent ?? '').trim();
+  // 4. aria-label
+  const ariaLabel = el.getAttribute('aria-label');
+  if (ariaLabel && ariaLabel.trim()) {
+    return ariaLabel.trim();
   }
 
-  if (controlId) {
-    const explicit = document.querySelector(`label[for="${CSS.escape(controlId)}"]`);
-    if (explicit) {
-      const text = (explicit.textContent ?? '').trim();
-      if (text) return text;
-    }
-  }
-
-  let parent: HTMLElement | null = el.parentElement;
+  // 5. fieldset/legend context
+  parent = el.parentElement;
   let depth = 0;
   while (parent && depth < 4) {
     if (parent.tagName === 'FIELDSET') {
       const legend = parent.querySelector(':scope > legend');
       if (legend) {
-        const t = (legend.textContent ?? '').trim();
-        if (t) return t;
+        const text = (legend.textContent ?? '').trim();
+        if (text) return text;
       }
+      break;
     }
     parent = parent.parentElement;
     depth++;
+  }
+
+  // 6. nearby question/description text
+  if (el.previousElementSibling) {
+    const text = (el.previousElementSibling.textContent ?? '').trim();
+    if (text && text.length > 0 && text.length < 150) {
+      return text;
+    }
+  }
+
+  // 7. placeholder
+  const placeholder = el.getAttribute('placeholder');
+  if (placeholder && placeholder.trim()) {
+    return placeholder.trim();
+  }
+
+  // 8. name
+  if (controlName && controlName.trim()) {
+    return controlName.trim();
+  }
+
+  // 9. id
+  if (controlId && controlId.trim()) {
+    return controlId.trim();
   }
 
   return '';
@@ -306,7 +347,8 @@ function buildField(
   const readOnly = isReadOnly(el);
   const visible = isElementVisible(el);
   const autocomplete = getAutocomplete(el);
-  let label = findLabelText(el, id);
+  let label = extractSemanticContext(el, id, name);
+  const semanticContext = label;
 
   const { hint, sources } = inferSemanticHint({
     type,
@@ -343,7 +385,7 @@ function buildField(
       
       options = siblings.map(s => ({
         value: s.value ?? '',
-        text: (s.getAttribute('aria-label') ?? '').trim() || findLabelText(s, s.id) || s.value || '',
+        text: (s.getAttribute('aria-label') ?? '').trim() || extractSemanticContext(s, s.id, s.name) || s.value || '',
         selected: s.checked,
         disabled: s.disabled,
       }));
@@ -389,7 +431,7 @@ function buildField(
       const sId = s.id || `custom_radio_${idx}`;
       return {
         value: s.getAttribute('value') ?? `radio_${idx}`,
-        text: findLabelText(s as any, sId) || (s.textContent || '').trim(),
+        text: extractSemanticContext(s as any, sId, s.getAttribute('name') ?? '') || (s.textContent || '').trim(),
         selected: s.getAttribute('aria-checked') === 'true',
         disabled: s.getAttribute('aria-disabled') === 'true'
       };
@@ -478,6 +520,7 @@ function buildField(
     autocomplete,
     semanticHint,
     semanticSources: sources,
+    semanticContext,
     options,
     valuePresent,
     containsSensitiveValue: sensitive,
@@ -710,5 +753,111 @@ export function detectPage(): FormPage {
     formCount: groups.length,
     totalFieldCount: totalFields,
     forms: groups,
+  };
+}
+
+export function getVisualContext(stableId: string): FieldVisualContext | null {
+  const ref = liveElements.get(stableId);
+  const el = ref?.deref();
+  if (!el) return null;
+
+  const rect = el.getBoundingClientRect();
+  const winHeight = window.innerHeight;
+  const winWidth = window.innerWidth;
+  
+  let visibility: FieldVisualContext['visibility'] = 'visible';
+  if (!isElementVisible(el)) {
+    visibility = 'hidden';
+  } else if (
+    rect.bottom <= 0 ||
+    rect.top >= winHeight ||
+    rect.right <= 0 ||
+    rect.left >= winWidth
+  ) {
+    visibility = 'outside-viewport';
+  } else if (
+    rect.top < 0 ||
+    rect.bottom > winHeight ||
+    rect.left < 0 ||
+    rect.right > winWidth
+  ) {
+    visibility = 'partially-visible';
+  }
+
+  const boundingBox = {
+    x: rect.x,
+    y: rect.y,
+    width: rect.width,
+    height: rect.height
+  };
+
+  const texts: string[] = [];
+  
+  if (el.previousElementSibling && isElementVisible(el.previousElementSibling)) {
+    const t = (el.previousElementSibling.textContent ?? '').trim();
+    if (t) texts.push(t);
+  }
+  
+  let p = el.parentElement;
+  let steps = 0;
+  while (p && steps < 2) {
+    if (isElementVisible(p)) {
+       // In real DOM, we must manually find hidden elements in original and remove from clone
+       // Or simply walk original and collect text of visible text nodes.
+       // Walking is safer.
+       let visibleText = '';
+       const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, {
+         acceptNode: (node) => {
+           const parent = node.parentElement;
+           if (parent && !isElementVisible(parent)) {
+             return NodeFilter.FILTER_REJECT;
+           }
+           if (parent && ['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(parent.tagName)) {
+             return NodeFilter.FILTER_REJECT;
+           }
+           return NodeFilter.FILTER_ACCEPT;
+         }
+       });
+       let currentNode = walker.nextNode();
+       while (currentNode) {
+         visibleText += currentNode.nodeValue + ' ';
+         currentNode = walker.nextNode();
+       }
+       
+       const t = visibleText.trim();
+       if (t) texts.push(t);
+    }
+    p = p.parentElement;
+    steps++;
+  }
+
+  const cleanTexts: string[] = [];
+  for (const t of texts) {
+    let normalized = t.replace(/\s+/g, ' ');
+    if (normalized.length < 2) continue;
+    if (normalized.length > 300) {
+      normalized = normalized.substring(0, 300); // Truncate instead of ignore
+    }
+    
+    const isSubset = cleanTexts.some(existing => existing.includes(normalized));
+    if (isSubset) continue;
+    
+    for (let i = cleanTexts.length - 1; i >= 0; i--) {
+      if (normalized.includes(cleanTexts[i])) {
+        cleanTexts.splice(i, 1);
+      }
+    }
+    cleanTexts.push(normalized);
+  }
+
+  let nearbyText = cleanTexts.join(' | ');
+  if (nearbyText.length > 200) {
+    nearbyText = nearbyText.substring(0, 200) + '...';
+  }
+
+  return {
+    boundingBox,
+    visibility,
+    nearbyText: nearbyText || undefined,
   };
 }

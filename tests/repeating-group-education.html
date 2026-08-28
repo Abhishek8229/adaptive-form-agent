@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Repeating Education Group - Smoke Test</title>
+    <style>
+      body { font-family: -apple-system, Segoe UI, sans-serif; margin: 24px; color: #1d1f23; }
+      .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; max-width: 420px; }
+      label { font-size: 13px; font-weight: 500; }
+      input { font: inherit; padding: 8px 10px; border: 1px solid #d8dce1; border-radius: 6px; }
+      .instance { border: 1px solid #d8dce1; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; max-width: 460px; background: #f6f7f9; }
+      .instance h3 { margin: 0 0 10px 0; font-size: 14px; }
+      button { font: inherit; padding: 9px 18px; border-radius: 6px; border: 1px solid #2b5fff; background: #2b5fff; color: #fff; cursor: pointer; }
+      button:hover { background: #1f4cd1; }
+      .small { font-size: 12px; color: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <h1>Education Repeating-Group Smoke Test</h1>
+    <p class="small">
+      Scenario <span id="scenarioLabel">A</span>: initially
+      <span id="initialCount">1</span> education instance(s) visible.
+      The "Add Education" button appends exactly one new instance per click.
+    </p>
+
+    <form id="education-form" novalidate>
+      <div id="educationInstances"></div>
+      <button type="button" id="addEducationBtn">Add Education</button>
+    </form>
+
+    <pre id="debug" class="small"></pre>
+
+    <script>
+      (function () {
+        var scenario = (new URLSearchParams(location.search).get('scenario') || 'A').toUpperCase();
+        var initial = scenario === 'B' ? 2 : 1;
+        var counter = 0;
+        var container = document.getElementById('educationInstances');
+        var debugEl = document.getElementById('debug');
+        var btn = document.getElementById('addEducationBtn');
+
+        document.getElementById('scenarioLabel').textContent = scenario;
+        document.getElementById('initialCount').textContent = String(initial);
+
+        function makeInstance(idx) {
+          var div = document.createElement('div');
+          div.className = 'instance';
+          div.setAttribute('data-instance-index', String(idx));
+          div.innerHTML =
+            '<h3>Education #' + (idx + 1) + '</h3>' +
+            '<div class="field">' +
+              '<label for="school_' + idx + '">School</label>' +
+              '<input id="school_' + idx + '" name="education[' + idx + '].school" type="text" />' +
+            '</div>' +
+            '<div class="field">' +
+              '<label for="degree_' + idx + '">Degree</label>' +
+              '<input id="degree_' + idx + '" name="education[' + idx + '].degree" type="text" />' +
+            '</div>' +
+            '<div class="field">' +
+              '<label for="startDate_' + idx + '">Start date</label>' +
+              '<input id="startDate_' + idx + '" name="education[' + idx + '].startDate" type="date" />' +
+            '</div>';
+          return div;
+        }
+
+        for (var i = 0; i < initial; i++) {
+          container.appendChild(makeInstance(counter++));
+        }
+
+        btn.addEventListener('click', function () {
+          container.appendChild(makeInstance(counter++));
+        });
+
+        window.__AFA_GET_STATE__ = function () {
+          var inputs = container.querySelectorAll('input');
+          var snap = [];
+          inputs.forEach(function (el) {
+            snap.push({ name: el.name, value: el.value });
+          });
+          return { count: counter, fields: snap };
+        };
+      })();
+    </script>
+  </body>
+</html>

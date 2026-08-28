@@ -106,6 +106,7 @@ export interface FormField {
   autocomplete: string;
   semanticHint: FormSemanticHint;
   semanticSources: string[];
+  semanticContext?: string;
   options: FormOption[];
   valuePresent: boolean;
   containsSensitiveValue: boolean;
@@ -181,6 +182,34 @@ export interface ScanPageMessage {
 
 export interface GetDetectionMessage {
   type: typeof GET_DETECTION_MESSAGE;
+}
+
+export const GET_VISUAL_CONTEXT_MESSAGE = 'AFA_GET_VISUAL_CONTEXT' as const;
+
+export interface FieldVisualContext {
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  nearbyText?: string;
+  visibility: 'visible' | 'partially-visible' | 'outside-viewport' | 'hidden';
+  screenshot?: {
+    dataUrl: string;
+    width: number;
+    height: number;
+    cropOffset: {
+      x: number;
+      y: number;
+      scale: number;
+    };
+  };
+}
+
+export interface GetVisualContextMessage {
+  type: typeof GET_VISUAL_CONTEXT_MESSAGE;
+  stableId: string;
 }
 
 export {

@@ -1,0 +1,6 @@
+2026/08/28-12:04:54.143 428c Reusing MANIFEST E:\adaptive-form-agent\tests\.edge-profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/08/28-12:04:54.144 428c Recovering log #10
+2026/08/28-12:04:54.145 428c Reusing old log E:\adaptive-form-agent\tests\.edge-profile\Default\EdgeCoupons/coupons_data.db/000010.log 
+2026/08/28-12:04:54.171 11dc Level-0 table #14: started
+2026/08/28-12:04:54.175 11dc Level-0 table #14: 683444 bytes OK
+2026/08/28-12:04:54.177 11dc Delete type=0 #10

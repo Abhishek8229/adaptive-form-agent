@@ -61,7 +61,7 @@ function makeField(overrides: Partial<FormField> & { target?: Partial<FieldTarge
 
 // ---------- normalizeKey ----------
 
-test('agent: normalizeKey lowercases and splits camelCase', () => {
+test('agent: normalizeKey lowercases and splits camelCase', async () => {
   assert.equal(normalizeKey('firstName'), 'first name');
   assert.equal(normalizeKey('first_name'), 'first name');
   assert.equal(normalizeKey('first-name'), 'first name');
@@ -69,19 +69,19 @@ test('agent: normalizeKey lowercases and splits camelCase', () => {
   assert.equal(normalizeKey('FIRST_NAME'), 'first name');
 });
 
-test('agent: normalizeKey collapses repeated separators', () => {
+test('agent: normalizeKey collapses repeated separators', async () => {
   assert.equal(normalizeKey('a__b  c'), 'a b c');
   assert.equal(normalizeKey('a.b.c'), 'a b c');
 });
 
 // ---------- fuzzyContains ----------
 
-test('agent: fuzzyContains exact substring', () => {
+test('agent: fuzzyContains exact substring', async () => {
   assert.equal(fuzzyContains('What is your first name?', 'first name'), true);
   assert.equal(fuzzyContains('What is your first name?', 'last name'), false);
 });
 
-test('agent: fuzzyContains token-order match', () => {
+test('agent: fuzzyContains token-order match', async () => {
   // "telephone country code" tokens must appear in order in the haystack
   assert.equal(fuzzyContains('Telephone country code', 'telephone country code'), true);
   // reversed order in the haystack should NOT match
@@ -92,7 +92,7 @@ test('agent: fuzzyContains token-order match', () => {
 
 // ---------- hintFromAutocomplete ----------
 
-test('agent: hintFromAutocomplete maps known tokens', () => {
+test('agent: hintFromAutocomplete maps known tokens', async () => {
   assert.equal(hintFromAutocomplete('email'), 'email');
   assert.equal(hintFromAutocomplete('given-name'), 'first_name');
   assert.equal(hintFromAutocomplete('family-name'), 'last_name');
@@ -101,13 +101,13 @@ test('agent: hintFromAutocomplete maps known tokens', () => {
   assert.equal(hintFromAutocomplete('bday'), 'date_of_birth');
 });
 
-test('agent: hintFromAutocomplete returns null for off/on/empty', () => {
+test('agent: hintFromAutocomplete returns null for off/on/empty', async () => {
   assert.equal(hintFromAutocomplete(''), null);
   assert.equal(hintFromAutocomplete('off'), null);
   assert.equal(hintFromAutocomplete('on'), null);
 });
 
-test('agent: hintFromAutocomplete returns null for cc-* sensitive tokens', () => {
+test('agent: hintFromAutocomplete returns null for cc-* sensitive tokens', async () => {
   // We don't have a hint for cc-number on purpose: it would map to
   // 'unknown' which the planner would not act on, but we still want
   // the token surface to NOT be silently mapped to a writable hint.
@@ -119,13 +119,13 @@ test('agent: hintFromAutocomplete returns null for cc-* sensitive tokens', () =>
 
 // ---------- planField: matching priority ----------
 
-test('agent: planField uses autocomplete hint first', () => {
+test('agent: planField uses autocomplete hint first', async () => {
   const field = makeField({
     target: { label: 'foo', autocomplete: 'email' },
     semanticHint: 'phone', // would normally pick phone, but autocomplete wins
   });
   const profile: JsonProfile = { email: 'jane@example.com', phone: '555-1234' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, true);
   if (r.ok) {
     assert.equal(r.match, 'autocomplete');
@@ -134,14 +134,14 @@ test('agent: planField uses autocomplete hint first', () => {
   }
 });
 
-test('agent: planField falls back to semanticHint when no autocomplete match', () => {
+test('agent: planField falls back to semanticHint when no autocomplete match', async () => {
   const field = makeField({
     target: { label: 'foo' },
     semanticHint: 'email',
     autocomplete: 'off',
   });
   const profile: JsonProfile = { email: 'jane@example.com' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, true);
   if (r.ok) {
     assert.equal(r.match, 'semantic');
@@ -149,13 +149,13 @@ test('agent: planField falls back to semanticHint when no autocomplete match', (
   }
 });
 
-test('agent: planField falls back to label/aria/placeholder/name/id', () => {
+test('agent: planField falls back to label/aria/placeholder/name/id', async () => {
   const field = makeField({
     target: { label: 'What is your first name?' },
     semanticHint: 'unknown',
   });
   const profile: JsonProfile = { firstName: 'Jane' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, true);
   if (r.ok) {
     assert.equal(r.match, 'label');
@@ -163,96 +163,96 @@ test('agent: planField falls back to label/aria/placeholder/name/id', () => {
   }
 });
 
-test('agent: planField matches snake_case profile key against label phrase', () => {
+test('agent: planField matches snake_case profile key against label phrase', async () => {
   const field = makeField({
     target: { name: 'first_name', label: 'First name' },
     semanticHint: 'unknown',
   });
   const profile: JsonProfile = { first_name: 'Jane' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, true);
   if (r.ok) {
     assert.equal(r.profileKey, 'first_name');
   }
 });
 
-test('agent: planField matches by ariaLabel', () => {
+test('agent: planField matches by ariaLabel', async () => {
   const field = makeField({
     target: { ariaLabel: 'Email address' },
     semanticHint: 'unknown',
   });
   const profile: JsonProfile = { email: 'x@y' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, true);
   if (r.ok) {
     assert.equal(r.profileKey, 'email');
   }
 });
 
-test('agent: planField matches by placeholder', () => {
+test('agent: planField matches by placeholder', async () => {
   const field = makeField({
     target: { placeholder: 'Search here' },
     semanticHint: 'unknown',
   });
   const profile: JsonProfile = { search: 'hello' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, true);
 });
 
-test('agent: planField returns skip when no profile key matches', () => {
+test('agent: planField returns skip when no profile key matches', async () => {
   const field = makeField({
     target: { label: 'Referred by' },
     semanticHint: 'unknown',
   });
   const profile: JsonProfile = { email: 'x@y' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, false);
   if (!r.ok) {
     assert.equal(r.reason, 'no_profile_match');
   }
 });
 
-test('agent: planField skips disabled fields', () => {
+test('agent: planField skips disabled fields', async () => {
   const field = makeField({ disabled: true });
   const profile: JsonProfile = { firstName: 'Jane' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, false);
   if (!r.ok) {
     assert.equal(r.reason, 'no_reliable_label');
   }
 });
 
-test('agent: planField skips readonly fields', () => {
+test('agent: planField skips readonly fields', async () => {
   const field = makeField({ readOnly: true });
   const profile: JsonProfile = { firstName: 'Jane' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, false);
 });
 
-test('agent: planField skips sensitive fields even when a profile key matches', () => {
+test('agent: planField skips sensitive fields even when a profile key matches', async () => {
   const field = makeField({
     containsSensitiveValue: true,
     controlType: 'input-password',
     target: { autocomplete: 'current-password' },
   });
   const profile: JsonProfile = { currentPassword: 'x' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, false);
 });
 
-test('agent: planField case-insensitive label match', () => {
+test('agent: planField case-insensitive label match', async () => {
   const field = makeField({
     target: { label: 'EMAIL' },
     semanticHint: 'unknown',
   });
   const profile: JsonProfile = { email: 'x@y' };
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, true);
 });
 
 // ---------- valueToInteraction: control-type mapping ----------
 
-test('agent: text input maps to set-text with the string value', () => {
+test('agent: text input maps to set-text with the string value', async () => {
   const field = makeField({ controlType: 'input-text' });
   const r = valueToInteraction(field, 'name', 'Jane', 'semantic');
   assert.equal(r.ok, true);
@@ -263,7 +263,7 @@ test('agent: text input maps to set-text with the string value', () => {
   }
 });
 
-test('agent: email input maps to set-text with the email value', () => {
+test('agent: email input maps to set-text with the email value', async () => {
   const field = makeField({ controlType: 'input-email' });
   const r = valueToInteraction(field, 'email', 'jane@example.com', 'autocomplete');
   assert.equal(r.ok, true);
@@ -272,7 +272,7 @@ test('agent: email input maps to set-text with the email value', () => {
   }
 });
 
-test('agent: date input maps to set-date', () => {
+test('agent: date input maps to set-date', async () => {
   const field = makeField({ controlType: 'input-date' });
   const r = valueToInteraction(field, 'dob', '1990-01-15', 'semantic');
   assert.equal(r.ok, true);
@@ -281,7 +281,7 @@ test('agent: date input maps to set-date', () => {
   }
 });
 
-test('agent: time input maps to set-time', () => {
+test('agent: time input maps to set-time', async () => {
   const field = makeField({ controlType: 'input-time' });
   const r = valueToInteraction(field, 'time', '14:30', 'semantic');
   assert.equal(r.ok, true);
@@ -290,7 +290,7 @@ test('agent: time input maps to set-time', () => {
   }
 });
 
-test('agent: textarea maps to set-textarea', () => {
+test('agent: textarea maps to set-textarea', async () => {
   const field = makeField({ controlType: 'textarea' });
   const r = valueToInteraction(field, 'message', 'hello world', 'label');
   assert.equal(r.ok, true);
@@ -299,7 +299,7 @@ test('agent: textarea maps to set-textarea', () => {
   }
 });
 
-test('agent: checkbox true maps to check', () => {
+test('agent: checkbox true maps to check', async () => {
   const field = makeField({ controlType: 'input-checkbox' });
   const r = valueToInteraction(field, 'agree', true, 'label');
   assert.equal(r.ok, true);
@@ -308,7 +308,7 @@ test('agent: checkbox true maps to check', () => {
   }
 });
 
-test('agent: checkbox false maps to uncheck', () => {
+test('agent: checkbox false maps to uncheck', async () => {
   const field = makeField({ controlType: 'input-checkbox' });
   const r = valueToInteraction(field, 'agree', false, 'label');
   assert.equal(r.ok, true);
@@ -317,7 +317,7 @@ test('agent: checkbox false maps to uncheck', () => {
   }
 });
 
-test('agent: checkbox non-boolean value is skipped', () => {
+test('agent: checkbox non-boolean value is skipped', async () => {
   const field = makeField({ controlType: 'input-checkbox' });
   const r = valueToInteraction(field, 'agree', 42, 'label');
   assert.equal(r.ok, false);
@@ -326,7 +326,7 @@ test('agent: checkbox non-boolean value is skipped', () => {
   }
 });
 
-test('agent: select maps to select-option by value', () => {
+test('agent: select maps to select-option by value', async () => {
   const field = makeField({
     controlType: 'select',
     options: [
@@ -344,7 +344,7 @@ test('agent: select maps to select-option by value', () => {
   }
 });
 
-test('agent: select unknown value is skipped', () => {
+test('agent: select unknown value is skipped', async () => {
   const field = makeField({
     controlType: 'select',
     options: [{ value: 'us', text: 'United States', selected: false, disabled: false }],
@@ -356,7 +356,7 @@ test('agent: select unknown value is skipped', () => {
   }
 });
 
-test('agent: select value-object shape uses .value field', () => {
+test('agent: select value-object shape uses .value field', async () => {
   const field = makeField({
     controlType: 'select',
     options: [
@@ -372,7 +372,7 @@ test('agent: select value-object shape uses .value field', () => {
   }
 });
 
-test('agent: radio maps to select-radio', () => {
+test('agent: radio maps to select-radio', async () => {
   const field = makeField({
     controlType: 'input-radio',
     options: [
@@ -387,7 +387,7 @@ test('agent: radio maps to select-radio', () => {
   }
 });
 
-test('agent: radio unknown value is skipped', () => {
+test('agent: radio unknown value is skipped', async () => {
   const field = makeField({
     controlType: 'input-radio',
     options: [{ value: 'm', text: 'Male', selected: false, disabled: false }],
@@ -399,7 +399,7 @@ test('agent: radio unknown value is skipped', () => {
   }
 });
 
-test('agent: number value is coerced to string', () => {
+test('agent: number value is coerced to string', async () => {
   const field = makeField({ controlType: 'input-number' });
   const r = valueToInteraction(field, 'age', 42, 'semantic');
   assert.equal(r.ok, true);
@@ -408,7 +408,7 @@ test('agent: number value is coerced to string', () => {
   }
 });
 
-test('agent: unsupported control type is skipped', () => {
+test('agent: unsupported control type is skipped', async () => {
   const field = makeField({ controlType: 'input-color' });
   // input-color is in our supported set so it maps to set-text. Use a
   // truly unsupported control for the negative case.
@@ -419,7 +419,7 @@ test('agent: unsupported control type is skipped', () => {
     assert.equal(r.reason, 'value_unsupported');
   }
 });
-test('agent: fuzzy key shadowing fallback avoids radio_value_not_found', () => {
+test('agent: fuzzy key shadowing fallback avoids radio_value_not_found', async () => {
   const profile: JsonProfile = {
     email: 'jane.doe@example.com',
     contactMethod: 'email',
@@ -431,7 +431,7 @@ test('agent: fuzzy key shadowing fallback avoids radio_value_not_found', () => {
     target: { label: 'Email', name: 'contactMethod', tag: 'input', type: 'radio', id: '', formId: '', formName: '', ariaLabel: '', placeholder: '', autocomplete: '', pathIndex: 0, selector: '' },
   });
   
-  const r = planField(field, profile);
+  const r = await planField(field, profile);
   assert.equal(r.ok, true);
   if (r.ok) {
     assert.equal(r.profileKey, 'contactMethod');

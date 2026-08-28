@@ -8,7 +8,7 @@ import {
   normalizeUrl
 } from '../src/background/value-normalizer.js';
 
-test('normalizeDate', () => {
+test('normalizeDate', async () => {
   assert.equal(normalizeDate('1998-08-15'), '1998-08-15');
   assert.equal(normalizeDate('15 August 1998'), '1998-08-15');
   assert.equal(normalizeDate('15 Aug 1998'), '1998-08-15');
@@ -19,7 +19,7 @@ test('normalizeDate', () => {
   assert.equal(normalizeDate('not a date'), null);
 });
 
-test('normalizeTime', () => {
+test('normalizeTime', async () => {
   assert.equal(normalizeTime('14:30'), '14:30');
   assert.equal(normalizeTime('02:30'), '02:30');
   assert.equal(normalizeTime('2:30 PM'), '14:30');
@@ -32,7 +32,7 @@ test('normalizeTime', () => {
   assert.equal(normalizeTime('not a time'), null);
 });
 
-test('normalizeNumber', () => {
+test('normalizeNumber', async () => {
   assert.equal(normalizeNumber('75000'), '75000');
   assert.equal(normalizeNumber('75,000'), '75000');
   assert.equal(normalizeNumber(' 75000 '), '75000');
@@ -42,14 +42,14 @@ test('normalizeNumber', () => {
   assert.equal(normalizeNumber('75,000 xyz'), null);
 });
 
-test('normalizeTelephone', () => {
+test('normalizeTelephone', async () => {
   assert.equal(normalizeTelephone('+91 98765 43210'), '+919876543210');
   assert.equal(normalizeTelephone('98765-43210'), '9876543210');
   assert.equal(normalizeTelephone('(555) 123-4567'), '5551234567');
   assert.equal(normalizeTelephone('123'), null, 'Too short');
 });
 
-test('normalizeUrl', () => {
+test('normalizeUrl', async () => {
   assert.equal(normalizeUrl('github.com/Abhishek8229'), 'https://github.com/Abhishek8229');
   assert.equal(normalizeUrl('www.example.com'), 'https://www.example.com');
   assert.equal(normalizeUrl('https://example.com'), 'https://example.com');

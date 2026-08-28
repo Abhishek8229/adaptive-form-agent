@@ -177,7 +177,7 @@ function diagnoseFields(fields: FormField[], profile: JsonProfile): FieldDiag[] 
       });
       continue;
     }
-    const plan = planField(field, profile);
+    const plan = await planField(field, profile);
     if (!plan.ok) {
       const detail = plan.detail ? ` (${plan.detail})` : '';
       console.log(f.name + ' -> ' + res.reason); diagnostics.push({

@@ -29,6 +29,10 @@ interface TabState {
   updatedAt: number;
 }
 
+import { OllamaLLMProvider } from './llm-provider';
+import { LocalVisionProvider } from './vision-provider';
+import { LocalOCRProvider } from './ocr-provider';
+
 const tabStates = new Map<number, TabState>();
 
 const profileStore = new ProfileStore();
@@ -47,6 +51,9 @@ const botRunner = new BotRunner({
   bridge: createChromeContentBridge(),
   push: popupPush,
   loadProfile: (id) => profileStore.get(id),
+  llmProvider: new OllamaLLMProvider(),
+  ocrProvider: new LocalOCRProvider(),
+  visionProvider: new LocalVisionProvider(),
 });
 
 chrome.runtime.onInstalled.addListener(() => {

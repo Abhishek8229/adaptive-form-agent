@@ -70,11 +70,11 @@ test('2 & 3. Mapping instance 0 to array item 0 and instance 1 to item 1', async
     ]
   };
   
-  const p0 = planField(page.forms[0].fields[0], profile.education[0]);
+  const p0 = await planField(page.forms[0].fields[0], profile.education[0]);
   assert.equal(p0.ok, true);
   if (p0.ok) assert.equal(p0.request.value, 'ABC');
 
-  const p1 = planField(page.forms[0].fields[1], profile.education[1]);
+  const p1 = await planField(page.forms[0].fields[1], profile.education[1]);
   assert.equal(p1.ok, true);
   if (p1.ok) assert.equal(p1.request.value, 'XYZ');
 });

@@ -50,13 +50,13 @@ const profile: JsonProfile = {
   frameworks: ['react', 'svelte'],
 };
 
-test('matching: generic HTML names with meaningful labels via synonyms', () => {
+test('matching: generic HTML names with meaningful labels via synonyms', async () => {
   const field = makeField({
     name: 'usr_addr_1', // generic name
     id: 'field_99',
     label: 'Where do you live?',
   });
-  const plan = planField(field, profile);
+  const plan = await planField(field, profile);
   assert.equal(plan.ok, true);
   if (plan.ok) {
     assert.equal(plan.profileKey, 'addressLine1');
@@ -64,13 +64,13 @@ test('matching: generic HTML names with meaningful labels via synonyms', () => {
   }
 });
 
-test('matching: name/label mismatch resolves via synonyms', () => {
+test('matching: name/label mismatch resolves via synonyms', async () => {
   const field = makeField({
     name: 'usr_nick_99', // mismatch
     id: 'field_88',
     label: 'What should we call you?', // synonym for firstName
   });
-  const plan = planField(field, profile);
+  const plan = await planField(field, profile);
   assert.equal(plan.ok, true);
   if (plan.ok) {
     assert.equal(plan.profileKey, 'firstName');
@@ -78,13 +78,13 @@ test('matching: name/label mismatch resolves via synonyms', () => {
   }
 });
 
-test('matching: checkbox groups support profile arrays', () => {
+test('matching: checkbox groups support profile arrays', async () => {
   const fieldReact = makeField({
     controlType: 'input-checkbox',
     name: 'frameworks',
     label: 'React',
   });
-  const planReact = planField(fieldReact, profile);
+  const planReact = await planField(fieldReact, profile);
   assert.equal(planReact.ok, true);
   if (planReact.ok) assert.equal(planReact.request.kind, 'check');
 
@@ -93,19 +93,19 @@ test('matching: checkbox groups support profile arrays', () => {
     name: 'frameworks',
     label: 'Vue',
   });
-  const planVue = planField(fieldVue, profile);
+  const planVue = await planField(fieldVue, profile);
   assert.equal(planVue.ok, true);
   if (planVue.ok) assert.equal(planVue.request.kind, 'uncheck');
 });
 
-test('matching: protected fields are blocked even if a profile key could match', () => {
+test('matching: protected fields are blocked even if a profile key could match', async () => {
   const field = makeField({
     name: 'otp', // protected by regex
     label: 'One-time code',
   });
   // even if profile had an 'otp' key, it should be blocked
   const localProfile = { ...profile, otp: '123456' };
-  const plan = planField(field, localProfile);
+  const plan = await planField(field, localProfile);
   assert.equal(plan.ok, false);
   if (!plan.ok) {
     assert.equal(plan.reason, 'no_reliable_label');
@@ -113,7 +113,7 @@ test('matching: protected fields are blocked even if a profile key could match',
   }
 });
 
-test('matching: ambiguous semantic matches fallback correctly', () => {
+test('matching: ambiguous semantic matches fallback correctly', async () => {
   // If semantic hint points to something useless, the new candidate iteration
   // should allow a fallback to a label match that yields a valid interaction.
   const field = makeField({
@@ -126,7 +126,7 @@ test('matching: ambiguous semantic matches fallback correctly', () => {
   // The profile has workLocation='remote' AND url='https://example.com'
   const localProfile = { ...profile, url: 'https://example.com' };
   
-  const plan = planField(field, localProfile);
+  const plan = await planField(field, localProfile);
   assert.equal(plan.ok, true);
   if (plan.ok) {
     // Should NOT use 'url' because valueToInteraction for 'https://example.com' fails.
@@ -137,7 +137,7 @@ test('matching: ambiguous semantic matches fallback correctly', () => {
   }
 });
 
-test('matching: select dropdown fuzzy matching', () => {
+test('matching: select dropdown fuzzy matching', async () => {
   const profile = {
     country: 'United States',
     role: 'Senior Software Engineer',
@@ -150,7 +150,7 @@ test('matching: select dropdown fuzzy matching', () => {
     name: 'country',
     options: [{ value: 'us', text: 'United States of America', selected: false, disabled: false }]
   });
-  const plan1 = planField(field1, profile);
+  const plan1 = await planField(field1, profile);
   assert.equal(plan1.ok, true);
 
   // 2. Option text in profile value ("Software Engineer" in "Senior Software Engineer")
@@ -159,7 +159,7 @@ test('matching: select dropdown fuzzy matching', () => {
     name: 'role',
     options: [{ value: 'swe', text: 'Software Engineer', selected: false, disabled: false }]
   });
-  const plan2 = planField(field2, profile);
+  const plan2 = await planField(field2, profile);
   assert.equal(plan2.ok, true);
 
   // 3. Substring with punctuation ("Search Engine" in "Search Engine (Google, Bing)")
@@ -168,6 +168,6 @@ test('matching: select dropdown fuzzy matching', () => {
     name: 'source',
     options: [{ value: 'search', text: 'Search Engine (Google, Bing, etc)', selected: false, disabled: false }]
   });
-  const plan3 = planField(field3, profile);
+  const plan3 = await planField(field3, profile);
   assert.equal(plan3.ok, true);
 });

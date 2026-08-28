@@ -1,13 +1,15 @@
-import { detectPage } from './detector';
+import { detectPage, getVisualContext } from './detector';
 import { runInteraction, setPageSnapshot } from './interaction/engine';
 import {
   FORM_DETECTED_MESSAGE,
   GET_DETECTION_MESSAGE,
+  GET_VISUAL_CONTEXT_MESSAGE,
   INTERACT_MESSAGE,
   SCAN_PAGE_MESSAGE,
   type FormDetectedMessage,
   type FormPage,
   type GetDetectionMessage,
+  type GetVisualContextMessage,
   type InteractMessage,
   type InteractionRequest,
   type InteractionResult,
@@ -29,7 +31,7 @@ function broadcast(result: FormPage): void {
   const message: FormDetectedMessage = { type: FORM_DETECTED_MESSAGE, payload: result };
   try {
     chrome.runtime.sendMessage(message).catch(() => {});
-  } catch {
+  } catch (e) {
   }
 }
 
@@ -59,11 +61,28 @@ observer.observe(document.documentElement, {
   childList: true,
   subtree: true,
   attributes: true,
-  attributeFilter: [
-    'type', 'name', 'id', 'placeholder', 'value', 'checked', 'selected',
-    'aria-label', 'aria-labelledby', 'aria-required', 'aria-disabled', 'aria-hidden',
-    'required', 'disabled', 'readonly', 'hidden', 'style', 'class', 'form', 'autocomplete',
-  ],
+  characterData: true,
+});
+
+window.addEventListener('AFA_TEST_GET_ID', () => {
+  window.dispatchEvent(new CustomEvent('AFA_TEST_ID_RESPONSE', { detail: chrome.runtime.id }));
+});
+
+window.addEventListener('AFA_TEST_SAVE_PROFILE', () => {
+  chrome.runtime.sendMessage({
+    type: 'AFA_PROFILE_SAVE',
+    id: 'test-profile',
+    name: 'test',
+    profile: { yearsExperience: "5" }
+  }).catch(() => {});
+});
+
+window.addEventListener('AFA_TEST_START_BOT', (e: any) => {
+  chrome.runtime.sendMessage({
+    type: 'AFA_BOT_START',
+    tabId: e.detail?.tabId,
+    profileId: 'test-profile'
+  }).catch(() => {});
 });
 
 runImmediateScan();
@@ -149,7 +168,7 @@ if (false) {
   installDemoApi();
 }
 
-chrome.runtime.onMessage.addListener((message: ScanPageMessage | GetDetectionMessage | InteractMessage, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: ScanPageMessage | GetDetectionMessage | GetVisualContextMessage | InteractMessage, _sender, sendResponse) => {
   if (!message || typeof message !== 'object') return;
 
   if (message.type === SCAN_PAGE_MESSAGE) {
@@ -161,6 +180,12 @@ chrome.runtime.onMessage.addListener((message: ScanPageMessage | GetDetectionMes
 
   if (message.type === GET_DETECTION_MESSAGE) {
     sendResponse({ ok: true, result: lastResult });
+    return true;
+  }
+
+  if (message.type === GET_VISUAL_CONTEXT_MESSAGE) {
+    const ctx = getVisualContext((message as GetVisualContextMessage).stableId);
+    sendResponse({ ok: true, result: ctx });
     return true;
   }
 

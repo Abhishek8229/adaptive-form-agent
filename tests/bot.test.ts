@@ -60,7 +60,37 @@ function makeField(overrides: Partial<FormField> & { target?: Partial<FieldTarge
   };
 }
 
-function makePage(fields: FormField[]): FormPage {
+function makeSubmit(opts: { stableId: string; text: string; type: string }): FormSubmitControl {
+  return {
+    stableId: opts.stableId,
+    tag: 'button',
+    type: opts.type,
+    text: opts.text,
+    ariaLabel: '',
+    disabled: false,
+    visible: true,
+    target: {
+      selector: 'button',
+      pathIndex: 0,
+      tag: 'button',
+      type: opts.type,
+      id: '',
+      name: '',
+      label: opts.text,
+      ariaLabel: '',
+      placeholder: '',
+      autocomplete: '',
+      formId: '',
+      formName: '',
+    },
+  };
+}
+
+function makePage(
+  fields: FormField[],
+  submits: FormSubmitControl[] = [],
+  labelText: string = '',
+): FormPage {
   return {
     url: 'http://localhost/',
     title: 'test',
@@ -79,11 +109,11 @@ function makePage(fields: FormField[]): FormPage {
           enctype: '',
           target: '',
           fieldCount: fields.length,
-          submitCount: 0,
-          labelText: '',
+          submitCount: submits.length,
+          labelText,
         },
         fields,
-        submitControls: [],
+        submitControls: submits,
       },
     ],
   };
@@ -500,4 +530,77 @@ test('bot: rescans and discovers newly visible fields after successful interacti
   assert.equal(snap.counters.completed, 2);
   assert.equal(snap.counters.skipped, 0);
   assert.equal(snap.counters.failed, 0);
+});
+
+// ---------- Field Discovery (deterministic advance) ----------
+
+test('bot: field discovery clicks "Next" button in multi-step form', async () => {
+  // Page 1 has an unfilled field + a "Next" button. The form metadata
+  // indicates multi-step chrome. The bot cannot fill the field (no
+  // matching profile key), so it should fall through to discoverNextAction
+  // and click "Next", revealing new fields on the next page.
+  const f1 = makeField({ stableId: 'g.f1', target: { name: 'firstName' } });
+  const f2 = makeField({ stableId: 'g.f2', target: { name: 'lastName' } });
+  const nextBtn = makeSubmit({ stableId: 'g.s0', text: 'Next', type: 'button' });
+
+  let scanCount = 0;
+  const clickedKinds: string[] = [];
+  const bridge: FakeBridge = {
+    async scan() {
+      scanCount++;
+      // First scan returns page 1 with f1 + Next. After clicking Next,
+      // page 2 has f2.
+      if (scanCount === 1) {
+        return { ok: true, result: makePage([f1], [nextBtn], 'Step 1 of 2') };
+      }
+      return { ok: true, result: makePage([f2], [], 'Step 2 of 2') };
+    },
+    async interact(_tabId, request) {
+      clickedKinds.push(request.kind + ':' + request.stableId);
+      return {
+        ok: true,
+        result: { success: true, stableId: request.stableId, kind: request.kind, retried: false },
+      };
+    },
+  };
+  const status = captureStatus();
+  const profile = makeProfile({});
+  const bot = new Bot({ tabId: 1, profile, bridge, pushStatus: status.push });
+  const snap = await bot.run();
+
+  assert.equal(snap.status, 'done');
+  // The bot must have clicked the Next button at some point.
+  assert.ok(
+    clickedKinds.some((k) => k === 'click-button:g.s0'),
+    `expected a click-button on g.s0; got ${JSON.stringify(clickedKinds)}`,
+  );
+});
+
+test('bot: field discovery NEVER clicks submit buttons', async () => {
+  // A "Submit application" button must never be clicked by the discovery
+  // step, even when no profile matches anything on the page.
+  const submitBtn = makeSubmit({ stableId: 'g.s0', text: 'Submit application', type: 'submit' });
+  const otherBtn = makeSubmit({ stableId: 'g.s1', text: 'Save and Continue', type: 'button' });
+  const f1 = makeField({ stableId: 'g.f1', target: { name: 'unrelated' } });
+  const bridge: FakeBridge = {
+    async scan() {
+      return { ok: true, result: makePage([f1], [submitBtn, otherBtn], 'Step 1 of 1') };
+    },
+    async interact(_tabId, request) {
+      return {
+        ok: true,
+        result: { success: true, stableId: request.stableId, kind: request.kind, retried: false },
+      };
+    },
+  };
+  const status = captureStatus();
+  const profile = makeProfile({});
+  const bot = new Bot({ tabId: 1, profile, bridge, pushStatus: status.push });
+  await bot.run();
+
+  const clicks = status.snapshots
+    .filter((s) => s.currentField && s.currentField.reason &&
+      (s.currentField.reason.includes('advancing') || s.currentField.reason.includes('adding another')))
+    .map((s) => s.currentField!.stableId);
+  assert.equal(clicks.length, 0, `discovery must not click anything; got ${JSON.stringify(clicks)}`);
 });

@@ -1,0 +1,6 @@
+{
+  "education": [
+    { "school": "Massachusetts Institute of Technology", "degree": "B.Sc. Computer Science", "startDate": "2010-09-01" },
+    { "school": "Stanford University", "degree": "M.Sc. Computer Science", "startDate": "2014-09-01" }
+  ]
+}

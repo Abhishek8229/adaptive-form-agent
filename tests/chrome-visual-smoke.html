@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <!-- Weak-DOM form: the input has no name, id, label, aria, or placeholder.
+         Only the visible text above the input can identify it. The text is
+         crafted to match a known question-intent pattern
+         (years.*experience -> yearsOfExperience) so the agent's visual
+         fallback path can drive the fill. -->
+    <div id="visual-test" style="padding: 50px; font-family: sans-serif;">
+      <div style="margin-bottom: 6px;">How many years of professional experience do you have?</div>
+      <div>
+        <input type="text" id="years-input" />
+      </div>
+    </div>
+  </body>
+</html>

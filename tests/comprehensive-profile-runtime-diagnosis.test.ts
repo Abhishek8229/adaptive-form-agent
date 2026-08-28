@@ -189,7 +189,7 @@ test('diagnosis: comprehensive profile browser-equivalent skip reasons', async (
   for (const [i, event] of skipped.entries()) {
     const field = fields.get(event.stableId);
     assert.ok(field, `missing field for ${event.stableId}`);
-    const plan = planField(field, profile);
+    const plan = await planField(field, profile);
     const source = sourceForReason(event.reason);
     const matchedKey = plan.ok ? plan.profileKey : null;
     const value = matchedKey === null ? undefined : profile[matchedKey];
